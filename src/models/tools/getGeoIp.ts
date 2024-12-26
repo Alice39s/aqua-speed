@@ -90,7 +90,7 @@ abstract class BaseIpSource implements IpSource {
 
             // Log response details
             const duration = Date.now() - startTime;
-            logger.info(`✨ Response received: ${method} ${url} - Status: ${response.status} (${duration}ms)`);
+            logger.debug(`✨ Response received: ${method} ${url} - Status: ${response.status} (${duration}ms)`);
             logger.debug(`Response headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`);
 
             if (!response.ok) {

@@ -54,13 +54,10 @@ class Logger {
     return ora({
       text,
       color: mergedOptions.color,
-      spinner: {
-        interval: 80,
-        frames: ['[       ]', '[=      ]', '[==     ]', '[===    ]', '[====   ]', '[=====  ]', '[====== ]', '[=======]',
-          '[ ======]', '[  =====]', '[   ====]', '[    ===]', '[     ==]', '[      =]']
-      },
+      spinner: 'pong',
       isEnabled: mergedOptions.enabled,
-      stream: process.stdout
+      stream: process.stdout,
+      discardStdin: false
     });
   }
 
