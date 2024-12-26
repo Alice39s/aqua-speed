@@ -1,29 +1,47 @@
-# Multi-stage build - first stage for dependencies and building
-FROM oven/bun:canary-slim AS builder
-
-# Set working directory
-WORKDIR /app
-
-# Copy dependency files only
-COPY package.json bun.lockb ./
-
-# Install production dependencies only
-RUN bun install --frozen-lockfile --production --no-install-postinstall
-
-# Copy source code to /app/src
-COPY src ./src
-
-# Second stage - minimal runtime environment
-FROM oven/bun:canary-slim
+FROM oven/bun:1.1-slim AS builder
 
 WORKDIR /app
 
-# Copy only necessary files from builder stage
+# Build arguments
+ARG BUILD_DATE
+ARG VERSION
+
+# Environment
+ENV NODE_ENV=production
+
+# Copy dependency files
+COPY package.json bun.lockb tsconfig.json ./
+
+# Install dependencies
+RUN bun install --no-install-postinstall
+
+# Copy source code
+COPY src/ ./src/
+
+# Second stage
+FROM oven/bun:1.1-slim
+
+WORKDIR /app
+
+# Labels
+LABEL build_date=$BUILD_DATE version=$VERSION
+
+# Copy from builder
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/src ./src
+COPY --from=builder /app/tsconfig.json ./
 
-# Switch to non-root user for better security
-USER bun
+# Copy entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Set the entrypoint
-ENTRYPOINT ["bun", "run", "start"]
+# Create necessary directories
+RUN mkdir -p /app/tmp && chown -R bun:bun /app
+
+# Create volume for data
+VOLUME ["/app/data"]
+
+# Switch to non-root user
+USER bun:bun
+
+ENTRYPOINT ["/entrypoint.sh"]
