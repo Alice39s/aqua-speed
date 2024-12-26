@@ -54,7 +54,7 @@ chmod +x aqua-speed
 ### Run from Docker
 
 ```bash
-docker run ghcr.io/Alice39s/aqua-speed:latest
+docker run ghcr.io/alice39s/aqua-speed:latest
 ```
 
 ### Run from Source
