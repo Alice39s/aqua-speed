@@ -171,8 +171,7 @@ jobs:
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: |
-            "${{ runner.temp }}/release/*"
+          artifacts: ${{ runner.temp }}/release/*.{tar.xz,zip,txt}
           token: ${{ github.token }}
           tag: v${{ needs.build.outputs.version }}
           name: Release ${{ needs.build.outputs.version }}
