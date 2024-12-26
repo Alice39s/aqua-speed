@@ -1,4 +1,4 @@
-FROM oven/bun:1.1-slim AS builder
+FROM oven/bun:1.1-debian AS builder
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ RUN bun install --no-install-postinstall
 COPY src/ ./src/
 
 # Second stage
-FROM oven/bun:1.1-slim
+FROM oven/bun:1.1-debian
 
 # Install required packages
 USER root
@@ -54,5 +54,7 @@ USER bun:bun
 ENV NODE_ENV=production
 ENV ENVIRONMENT=Docker
 ENV TERM=xterm-256color
+ENV FORCE_COLOR=1
+ENV COLORTERM=truecolor
 
 ENTRYPOINT ["/entrypoint.sh"]

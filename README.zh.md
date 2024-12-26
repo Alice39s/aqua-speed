@@ -56,7 +56,7 @@ chmod +x aqua-speed
 ### Docker 运行
 
 ```bash
-docker run ghcr.io/alice39s/aqua-speed:latest
+docker run -it ghcr.io/alice39s/aqua-speed:latest
 ```
 
 ### 从源代码运行
