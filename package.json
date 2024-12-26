@@ -1,7 +1,7 @@
 {
   "name": "aqua-speed",
   "module": "./src/cli.ts",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A modern network speed test CLI built with Bun and TypeScript.",
   "type": "module",
   "scripts": {

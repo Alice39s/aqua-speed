@@ -124,15 +124,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: "aqua-speed-*"
-          path: ${{ runner.temp }}/release
+          path: ${{ runner.temp }}/release/
           merge-multiple: true
 
       - name: Consolidate checksums
-        working-directory: ${{ runner.temp }}/release
+        working-directory: ${{ runner.temp }}/release/
         run: |
           # Combine all checksum files into one
           cat *.checksum.txt > checksums.txt
           rm *.checksum.txt
+
+      - name: List all files in the temp directory
+        run: |
+          ls -la ${{ runner.temp }}/release/
 
       - name: Get Previous Version
         id: get_prev_version
