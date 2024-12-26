@@ -1,0 +1,182 @@
+name: Build and Release
+
+permissions:
+  contents: write
+  packages: write
+  actions: read
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "package.json"
+      - ".github/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.VERSION }}
+      platform: ${{ steps.detect_platform.outputs.PLATFORM }}
+      binary_name: ${{ steps.setup_env.outputs.BINARY_NAME }}
+      archive_name: ${{ steps.setup_env.outputs.ARCHIVE_NAME }}
+    strategy:
+      matrix:
+        version:
+          [
+            "linux-x64",
+            "linux-arm64",
+            "windows-x64",
+            "darwin-x64",
+            "darwin-arm64",
+          ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2.0.1
+
+      - name: Detect Platform and Compress Format
+        id: detect_platform
+        run: |
+          PLATFORM="${{ matrix.version }}"
+          echo "PLATFORM=${PLATFORM}" >> $GITHUB_OUTPUT
+          echo "Current platform: ${PLATFORM}"
+          if [[ "${PLATFORM}" == *"linux"* ]]; then
+            echo "COMPRESS_FORMAT=tar.xz" >> $GITHUB_OUTPUT
+          else
+            echo "COMPRESS_FORMAT=zip" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Extract version number
+        id: get_version
+        run: |
+          VERSION=$(jq -r .version < package.json)
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Setup Build Environment
+        id: setup_env
+        run: |
+          mkdir -p ${{ runner.temp }}/build/out
+          mkdir -p ${{ runner.temp }}/build/logs
+          echo "BINARY_NAME=aqua-speed-${{ steps.detect_platform.outputs.PLATFORM }}_v${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_OUTPUT
+          echo "ARCHIVE_NAME=aqua-speed-${{ steps.detect_platform.outputs.PLATFORM }}_v${{ steps.get_version.outputs.VERSION }}.${{ steps.detect_platform.outputs.COMPRESS_FORMAT }}" >> $GITHUB_OUTPUT
+
+      - name: Install Dependencies
+        uses: nick-fields/retry@v2
+        with:
+          timeout_seconds: 30
+          max_attempts: 3
+          retry_wait_seconds: 5
+          command: |
+            bun install --no-install-postinstall || { echo "Failed to install dependencies"; exit 1; }
+
+      - name: Compile Code
+        run: |
+          bun build --compile --sourcemap --minify --bytecode \
+            --target=bun-${{ steps.detect_platform.outputs.PLATFORM }} \
+            ./src/cli.ts \
+            --outfile ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}
+
+      - name: Generate Checksums
+        working-directory: ${{ runner.temp }}/build/out
+        run: |
+          sha1sum ${{ steps.setup_env.outputs.BINARY_NAME }}* > checksum.txt
+
+      - name: Compress artifacts (Linux)
+        if: startsWith(steps.detect_platform.outputs.PLATFORM, 'linux')
+        working-directory: ${{ runner.temp }}/build/out
+        run: |
+          tar -cJf ${{ steps.setup_env.outputs.ARCHIVE_NAME }} ${{ steps.setup_env.outputs.BINARY_NAME }}* checksum.txt
+          rm -f ${{ steps.setup_env.outputs.BINARY_NAME }}
+          # Keep a copy of checksum.txt for later use
+          cp checksum.txt ${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
+
+      - name: Compress artifacts (macOS/Windows)
+        if: ${{ !startsWith(steps.detect_platform.outputs.PLATFORM, 'linux') }}
+        working-directory: ${{ runner.temp }}/build/out
+        run: |
+          if [[ "${{ steps.detect_platform.outputs.PLATFORM }}" == *"windows"* ]]; then
+            zip -j ${{ steps.setup_env.outputs.ARCHIVE_NAME }} ${{ steps.setup_env.outputs.BINARY_NAME }}*.exe checksum.txt
+            rm -f ${{ steps.setup_env.outputs.BINARY_NAME }}*.exe
+          else
+            zip -j ${{ steps.setup_env.outputs.ARCHIVE_NAME }} ${{ steps.setup_env.outputs.BINARY_NAME }}* checksum.txt
+            rm -f ${{ steps.setup_env.outputs.BINARY_NAME }}
+          fi
+          # Keep a copy of checksum.txt for later use
+          cp checksum.txt ${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.setup_env.outputs.ARCHIVE_NAME }}
+          path: |
+            ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.ARCHIVE_NAME }}
+            ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
+          retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "aqua-speed-*"
+          path: ${{ runner.temp }}/release
+          merge-multiple: true
+
+      - name: Consolidate checksums
+        working-directory: ${{ runner.temp }}/release
+        run: |
+          # Combine all checksum files into one
+          cat *.checksum.txt > checksums.txt
+          rm *.checksum.txt
+
+      - name: Get Previous Version
+        id: get_prev_version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const releases = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+
+            const currentVersion = '${{ needs.build.outputs.version }}';
+            console.log(`Releases: ${context.repo.owner}/${context.repo.repo}`, releases.data.map(r => r.tag_name));
+            console.log(`Creating version: v${currentVersion}`);
+
+            if (releases.data.length === 0) {
+              core.setOutput('version', 'first-commit');
+              core.setOutput('compare_url', `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/commits`);
+              core.setOutput('changes_text', 'all commits');
+            } else {
+              const previousRelease = releases.data[0];
+              const previousTag = previousRelease.tag_name;
+              const previousVersion = previousTag.replace('v', '');
+              console.log(`Previous version: ${previousTag}`);
+              core.setOutput('version', previousVersion);
+              core.setOutput('compare_url', 
+                `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/compare/v${previousVersion}...v${currentVersion}`
+              );
+              core.setOutput('changes_text', `changes since v${previousVersion}`);
+            }
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: |
+            "${{ runner.temp }}/release/*"
+          token: ${{ github.token }}
+          tag: v${{ needs.build.outputs.version }}
+          name: Release ${{ needs.build.outputs.version }}
+          body: |
+            Release of version ${{ needs.build.outputs.version }}
+
+            [View ${{ steps.get_prev_version.outputs.changes_text }}](${{ steps.get_prev_version.outputs.compare_url }})
+          draft: false
+          prerelease: false
+          allowUpdates: true
+          generateReleaseNotes: true
