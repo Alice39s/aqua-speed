@@ -1,4 +1,4 @@
-# Aqua Speed
+# :ocean: Aqua Speed
 
 一个使用 Bun 和 TypeScript 构建的现代网络测速 CLI 工具。
 
@@ -20,7 +20,7 @@
 >[!IMPORTANT]
 > 如本文和 [README.md](README.md) (英文版本) 不一致，请以前者为准。
 
-## 特性
+## :star2: 特性一览
 
 - 🚀 使用 Bun.sh 高性能 JS Runtime 构建，冷启动快、内存占用低
 - ✨ 支持多种测速服务器：
@@ -36,30 +36,30 @@
 - 🎨 美观的 CLI 界面，支持实时进度显示
 - 🛡️ 完备的 TypeScript 类型支持、使用 Biome 约束代码风格
 
-## 运行
+## :rocket: 启动
 
-### 从 CI 构建的二进制文件运行
+### 使用二进制启动
 
 从 [Releases](https://github.com/Alice39s/aqua-speed/releases) 下载最新的二进制文件压缩包
 
-#### Linux & macOS
+#### :penguin: Linux & :apple: macOS
 ```bash
 chmod +x aqua-speed
 ./aqua-speed
 ```
 
-#### Windows
+#### :window: Windows
 ```bash
 ./aqua-speed.exe
 ```
 
-### Docker 运行
+### :whale: Docker Run
 
 ```bash
 docker run -it ghcr.io/alice39s/aqua-speed:latest
 ```
 
-### 从源代码运行
+### :hammer_and_wrench: 从源代码运行
 
 #### 1. 安装 Bun
 
@@ -92,9 +92,9 @@ bun install
 bun run start
 ```
 
-## 基本用法
+## :book: 基本用法
 
-### 快速开始
+### :rocket: 快速开始
 ```bash
 # 使用默认设置运行 (Cloudflare 服务器, 4 线程)
 aqua-speed
@@ -106,7 +106,7 @@ aqua-speed --type LibreSpeed
 aqua-speed -s https://example.com/testfile.dat
 ```
 
-### 高级选项
+### :hammer_and_wrench: 高级选项
 
 ```bash
 aqua-speed [options]
@@ -120,7 +120,7 @@ Options:
   --type <type>         测试类型 (SingleFile|LibreSpeed|Cloudflare)
 ```
 
-## 示例输出
+## :mag: 示例输出
 
 ```
 Test Results:
@@ -139,7 +139,7 @@ Test Results:
         Time: 2024/12/25 12:00:00
 ```
 
-## 故障排除
+## :bug: 故障排除
 
 ### 常见问题
 
@@ -152,7 +152,7 @@ Test Results:
 - 减少线程数: `-t 2`
 - 更换其他测速服务器
 
-### 调试模式
+### :mag: 调试模式
 
 启用调试日志以获取详细信息:
 
@@ -160,7 +160,7 @@ Test Results:
 ./aqua-speed --debug
 ```
 
-## 开发
+## :hammer_and_wrench: 开发
 
 ```bash
 # 安装依赖
@@ -176,7 +176,7 @@ bun test
 bun run build:binary
 ```
 
-### 代码风格
+### :scroll: 代码风格
 
 本项目使用 Biome 进行代码格式化和 lint (使用 `biome format` 和 `biome check`):
 
@@ -188,7 +188,7 @@ bun run format
 bun run lint
 ```
 
-## 贡献
+## :fork_and_knife: 贡献
 
 1. Fork 仓库
 2. 创建特性分支
@@ -202,19 +202,19 @@ bun run lint
 - 提交信息清晰
 - 文档已更新
 
-## 更新日志
+## :book: 更新日志
 
 参见 [CHANGELOG.md](CHANGELOG.md) 获取更多详细信息。
 
-## 路线图
+## :construction: 路线图
 
 参见 [Roadmap.md](Roadmap.md) 获取更多详细信息。
 
-## 许可证
+## :scroll: 许可证
 
 [GPL-3.0 License](LICENSE)
 
-## 致谢
+## :pray: 致谢
 
 - [Bun](https://bun.sh) - JavaScript 运行时和工具包
 - [LibreSpeed](https://github.com/librespeed/speedtest) - 开源测速工具

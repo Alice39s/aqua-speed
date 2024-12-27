@@ -1,4 +1,4 @@
-# Aqua Speed
+# :ocean: Aqua Speed
 
 A modern network speed test CLI built with Bun and TypeScript.
 
@@ -18,7 +18,7 @@ A modern network speed test CLI built with Bun and TypeScript.
 
 </div>
 
-## Features
+## :star2: Features
 
 - 🚀 High-performance speed testing powered by Bun runtime
 - ✨ Multiple test servers support:
@@ -34,9 +34,9 @@ A modern network speed test CLI built with Bun and TypeScript.
 - 🎨 Beautiful CLI interface with real-time progress
 - 🛡️ Full TypeScript type support, Biome constrained code style.
 
-## Run
+## :fire: Run
 
-### Run from CI Build
+### :rocket: Run from CI Build
 
 Download the latest binary compressed package from [Releases](https://github.com/Alice39s/aqua-speed/releases)
 
@@ -51,13 +51,13 @@ chmod +x aqua-speed
 ./aqua-speed.exe 
 ```
 
-### Run from Docker
+### :whale: Run from Docker
 
 ```bash
 docker run -it ghcr.io/alice39s/aqua-speed:latest
 ```
 
-### Run from Source
+### :hammer_and_wrench: Run from Source
 
 #### 1. Install Bun
 
@@ -118,7 +118,7 @@ Options:
   --type <type>         Test type (SingleFile|LibreSpeed|Cloudflare)
 ```
 
-## Example Output
+## :mag: Example Output
 
 ```
 Test Results:
@@ -137,7 +137,7 @@ Test Results:
         Time: 2024/12/25 12:00:00
 ```
 
-## Troubleshooting
+## :bug: Troubleshooting
 
 ### Common Issues
 
@@ -158,7 +158,7 @@ Enable debug logging for detailed information:
 ./aqua-speed --debug
 ```
 
-## Development
+## :hammer_and_wrench: Development
 
 ```bash
 # Install dependencies
@@ -174,7 +174,7 @@ bun test
 bun run build:binary
 ```
 
-### Code Style
+### :scroll: Code Style
 
 This project uses Biome for code formatting and linting (using `biome format` and `biome check`):
 
@@ -186,15 +186,15 @@ bun run format
 bun run lint
 ```
 
-## Changelog
+## :book: Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for more details.
 
-## Roadmap
+## :construction: Roadmap
 
 See [Roadmap.md](Roadmap.md) for more details.
 
-## Contributing
+## :fork_and_knife: Contributing
 
 1. Fork repository
 2. Create feature branch
@@ -208,11 +208,11 @@ Please ensure:
 - Commit messages are clear
 - Documentation is updated
 
-## License
+## :scroll: License
 
 [GPL-3.0 License](LICENSE)
 
-## Acknowledgements
+## :pray: Acknowledgements
 
 - [Bun](https://bun.sh) - JavaScript runtime & toolkit
 - [LibreSpeed](https://github.com/librespeed/speedtest) - Open source speed test
