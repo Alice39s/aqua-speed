@@ -38,7 +38,7 @@
 
 # :star2: 演示
 
-<script src="https://asciinema.org/a/nlNFF30p1fHw5iwm8eXEmRqq0.js" id="asciicast-nlNFF30p1fHw5iwm8eXEmRqq0"></script>
+[![asciicast](https://asciinema.org/a/nlNFF30p1fHw5iwm8eXEmRqq0.svg)](https://asciinema.org/a/nlNFF30p1fHw5iwm8eXEmRqq0)
 
 ## :rocket: 启动
 

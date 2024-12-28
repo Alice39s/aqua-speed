@@ -36,7 +36,7 @@ A modern network speed test CLI built with Bun and TypeScript.
 
 # :star2: Demo
 
-<script src="https://asciinema.org/a/nlNFF30p1fHw5iwm8eXEmRqq0.js" id="asciicast-nlNFF30p1fHw5iwm8eXEmRqq0"></script>
+[![asciicast](https://asciinema.org/a/nlNFF30p1fHw5iwm8eXEmRqq0.svg)](https://asciinema.org/a/nlNFF30p1fHw5iwm8eXEmRqq0)
 
 ## :fire: Run
 
