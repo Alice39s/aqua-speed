@@ -17,6 +17,7 @@ on:
       - "Dockerfile"
       - "package.json"
       - ".dockerignore"
+      - "entrypoint.sh"
     branches:
       - main
 

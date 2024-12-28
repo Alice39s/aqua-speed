@@ -11,6 +11,7 @@ on:
       - main
     paths:
       - "package.json"
+      - "src/**"
       - ".github/**"
 
 jobs:
