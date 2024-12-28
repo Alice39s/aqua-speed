@@ -34,6 +34,10 @@ A modern network speed test CLI built with Bun and TypeScript.
 - 🎨 Beautiful CLI interface with real-time progress
 - 🛡️ Full TypeScript type support, Biome constrained code style.
 
+# :star2: Demo
+
+<script src="https://asciinema.org/a/nlNFF30p1fHw5iwm8eXEmRqq0.js" id="asciicast-nlNFF30p1fHw5iwm8eXEmRqq0"></script>
+
 ## :fire: Run
 
 ### :rocket: Run from CI Build

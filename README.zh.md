@@ -36,6 +36,10 @@
 - 🎨 美观的 CLI 界面，支持实时进度显示
 - 🛡️ 完备的 TypeScript 类型支持、使用 Biome 约束代码风格
 
+# :star2: 演示
+
+<script src="https://asciinema.org/a/nlNFF30p1fHw5iwm8eXEmRqq0.js" id="asciicast-nlNFF30p1fHw5iwm8eXEmRqq0"></script>
+
 ## :rocket: 启动
 
 ### 使用二进制启动
