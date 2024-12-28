@@ -118,7 +118,9 @@ export async function runSpeedTest(options: SpeedTestOptions): Promise<TestResul
             {
                 name: 'upload',
                 startMessage: 'Testing upload speed...',
-                execute: () => measureUpload(testEndpoint, speedTestConfig),
+                execute: () => type === 'SingleFile'
+                    ? Promise.resolve({ avg: 0, max: 0, min: 0, stdDev: 0, error: 0 })
+                    : measureUpload(testEndpoint, speedTestConfig),
                 formatResult: (result) => `Upload test completed - Avg: ${formatSpeedResult(result)}`
             }
         ];
@@ -142,6 +144,6 @@ export async function runSpeedTest(options: SpeedTestOptions): Promise<TestResul
         logger.error(`Speed test failed: ${error}`);
         throw error;
     } finally {
-        await sleep(500); // Cleanup delay
+        await sleep(300); // Cleanup delay
     }
 }
