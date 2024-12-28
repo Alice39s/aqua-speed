@@ -36,17 +36,17 @@ const TEST_ENDPOINTS: TestEndpoints = {
 
         const endpoint = testType === 'download' ? 'garbage.php' : 'empty.php';
         const params = testType === 'download' ? '?ckSize=100' : '';
-        
+
         // Construct the URL with the first path pattern (can be adjusted based on availability check)
         const path = paths[0];
         const url = `${baseUrl}${path}/${endpoint}${params}?r=${Math.random()}`;
         const referrer = `${baseUrl}/speedtest_worker.js?r=${Math.random()}`;
 
-        return { 
+        return {
             url,
             referrer,
             // Add additional paths that can be tried if the first one fails
-            fallbackUrls: paths.slice(1).map(p => 
+            fallbackUrls: paths.slice(1).map(p =>
                 `${baseUrl}${p}/${endpoint}${params}?r=${Math.random()}`
             )
         };
@@ -159,6 +159,11 @@ async function measureSpeed(
     config: TestConfigBase,
     testType: 'download' | 'upload',
 ): Promise<SpeedStats> {
+    // SingleFile type is not supported for upload test
+    if (testType === 'upload' && config.type === 'SingleFile') {
+        throw new SpeedTestError('Upload test is not supported for SingleFile type');
+    }
+
     const mergedConfig = { ...DEFAULT_CONFIG, ...config };
     const {
         minTestTime,
