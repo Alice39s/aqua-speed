@@ -125,14 +125,25 @@ jobs:
             ./src/cli.ts \
             --outfile ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}
 
+      # https://github.com/oven-sh/bun/discussions/12247
+      # FIXME: Workaround!!!
       - name: Compile Code (Windows)
         if: runner.os == 'Windows'
         shell: powershell
         run: |
+          $buildDir = "${{ runner.temp }}/build/out"
+
+          # Run bun build without outfile
           bun build --compile --sourcemap --minify --bytecode `
             --target=bun-${{ matrix.platform }} `
-            ./src/cli.ts `
-            --outfile "${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}.exe"
+            ./src/cli.ts
+
+          # Find the generated .bun-build file and rename it
+          Get-ChildItem -Path "." -Filter "*.bun-build" | 
+            Select-Object -First 1 | 
+            ForEach-Object {
+              Move-Item $_.FullName "$buildDir/${{ steps.setup_env.outputs.BINARY_NAME }}.exe" -Force
+            }
 
       - name: Generate Checksums (Linux/macOS)
         if: runner.os != 'Windows'
