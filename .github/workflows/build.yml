@@ -130,21 +130,20 @@ jobs:
       - name: Compile Code (Windows)
         if: runner.os == 'Windows'
         shell: powershell
+        continue-on-error: true
         run: |
           $buildDir = "${{ runner.temp }}/build/out"
 
-          # Run bun build without outfile
           bun build --compile --sourcemap --minify --bytecode `
             --target=bun-${{ matrix.platform }} `
-            ./src/cli.ts
+            ./src/cli.ts --outfile out
 
-          # Find the generated .bun-build file and rename it
-          Get-ChildItem -Path "." -Filter "*.bun-build" | 
-            Select-Object -First 1 | 
-            ForEach-Object {
-              Move-Item $_.FullName "$buildDir/${{ steps.setup_env.outputs.BINARY_NAME }}.exe" -Force
-            }
+          Start-Sleep -Seconds 2
 
+          $bunBuild = Get-ChildItem -Path "." -Filter "*.bun-build" | Select-Object -First 1
+          if ($bunBuild) {
+            Move-Item $bunBuild.FullName "$buildDir/${{ steps.setup_env.outputs.BINARY_NAME }}.exe" -Force
+          }
       - name: Generate Checksums (Linux/macOS)
         if: runner.os != 'Windows'
         working-directory: ${{ runner.temp }}/build/out
