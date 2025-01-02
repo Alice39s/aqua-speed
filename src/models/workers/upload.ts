@@ -1,10 +1,10 @@
 import { DEFAULT_FETCH_OPTIONS } from '../../constant/fetch';
 import { isDebugMode } from '../../utils/common';
-import { Dispatcher, fetch, type HeadersInit, type BodyInit } from 'undici';
+import { fetch, type Dispatcher, type BodyInit } from 'undici';
 import Logger from '../../utils/logger';
 import type { TestType } from '../../types';
-const logger = new Logger();
 
+const logger = new Logger();
 
 /**
  * Performs a single upload test for LibreSpeed or Cloudflare
@@ -24,8 +24,6 @@ async function testUploadWorker(
 ): Promise<number> {
     const startTime = performance.now();
     let totalBytes = 0;
-    const lastReportTime = startTime;
-    const lastReportBytes = 0;
 
     try {
         const url = new URL(testFile);
@@ -33,31 +31,23 @@ async function testUploadWorker(
         const chunkSize = 1024 * 1024; // 1MB
 
         let body: FormData | string;
-        let headers: HeadersInit;
+        let headers: Headers;
+
+        headers = new Headers(DEFAULT_FETCH_OPTIONS.headers as Record<string, string>);
+        headers.set('Referer', referer);
+        headers.set('Origin', referer);
 
         switch (testType) {
             case 'LibreSpeed': {
-                const blob = new Blob([new ArrayBuffer(chunkSize)]);
+                const blob = new Blob([new Uint8Array(chunkSize)]);
                 const formData = new FormData();
-                formData.append('data', blob, 'speedtest');
+                formData.append('file', blob, 'speedtest');
                 body = formData;
-                headers = {
-                    ...DEFAULT_FETCH_OPTIONS.headers,
-                    Referer: referer,
-                    Origin: referer,
-                    Path: new URL(testFile).pathname,
-                } as HeadersInit;
                 break;
             }
             case 'Cloudflare': {
                 body = '0'.repeat(chunkSize);
-                headers = {
-                    ...DEFAULT_FETCH_OPTIONS.headers,
-                    'Content-Type': 'text/plain;charset=UTF-8',
-                    Referer: referer,
-                    Origin: referer,
-                    Path: new URL(testFile).pathname,
-                } as HeadersInit;
+                headers.set('Content-Type', 'text/plain; charset=UTF-8');
                 break;
             }
             default: {
@@ -65,15 +55,20 @@ async function testUploadWorker(
             }
         }
 
-        const response = await fetch(testFile, {
+        const fetchOptions: Dispatcher.RequestOptions = {
             method: 'POST',
+            // @ts-ignore: undici supports, TODO: fix this type error
+            headers: headers as HeadersInit,
+            // @ts-ignore: undici supports, TODO: fix this type error
             body: body as BodyInit,
-            signal,
-            headers: headers as HeadersInit
-        });
+            signal: signal,
+        };
+
+        // @ts-ignore: undici supports, TODO: fix this type error
+        const response = await fetch(testFile, fetchOptions);
 
         if (!response.ok) {
-            logger.error(`[testUploadWorker/${testType}] Upload failed: ${response.statusText}, Status Code: ${response.status}, URL: ${response.url}, Headers: ${JSON.stringify(Object.fromEntries(Array.from(response.headers)))}`);
+            logger.error(`[testUploadWorker/${testType}] Upload failed: ${response.statusText}, Status Code: ${response.status}, URL: ${response.url}`);
             throw new Error('Upload failed');
         }
 
@@ -81,9 +76,8 @@ async function testUploadWorker(
         const now = performance.now();
 
         if (onProgress) {
-            const intervalBytes = totalBytes - lastReportBytes;
-            const intervalSeconds = (now - lastReportTime) / 1000;
-            const currentSpeed = (intervalBytes * 8) / intervalSeconds;
+            const durationSeconds = (now - startTime) / 1000;
+            const currentSpeed = (totalBytes * 8) / durationSeconds;
             onProgress(currentSpeed);
         }
 
@@ -93,7 +87,7 @@ async function testUploadWorker(
         if (isDebugMode()) {
             logger.error(`[testUploadWorker/${testType}] Error: ${err}`);
         }
-        if (err instanceof Error && 'name' in err && err.name === 'AbortError') {
+        if (err instanceof Error && err.name === 'AbortError') {
             const durationSeconds = (performance.now() - startTime) / 1000;
             return (totalBytes * 8) / durationSeconds;
         }

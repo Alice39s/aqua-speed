@@ -1,22 +1,13 @@
-import type { TestConfigBase, DownloadTestConfig, SpeedStats, UploadTestConfig, TestType } from '../types';
-import { sleep, calculateStats, isDebugMode } from '../utils/common';
-import { formatSpeed } from '../utils/format';
-import Logger from '../utils/logger';
-import { downloadTestWorker } from './workers/download';
-import { testUploadWorker } from './workers/upload';
-import { checkUrlAvailability } from './workers/check';
-
-// Constants
-const DEFAULT_CONFIG = {
-    minTestTime: 5000,
-    maxTestTime: 30000,
-    targetError: 0.05,
-    minSamples: 3,
-    progressInterval: 200,
-    thread: 4,
-    type: 'SingleFile' as TestType,
-    debug: isDebugMode()
-};
+import type { TestConfigBase, DownloadTestConfig, SpeedStats, UploadTestConfig, TestType } from '@/types';
+import { DEFAULT_TEST_OPTIONS } from '@/constant/default';
+import { sleep, calculateStats } from '@/utils/common';
+import { formatSpeed } from '@/utils/format';
+import Logger from '@/utils/logger';
+import { downloadTestWorker } from '@/models/workers/download';
+import { testUploadWorker } from '@/models/workers/upload';
+import { checkUrlAvailability } from '@/models/workers/check';
+import { adjustThreadCount } from '@/models/algorithms/thread';
+import { attemptSpeedTest } from '@/models/algorithms/fallback';
 
 const logger = new Logger();
 
@@ -92,59 +83,6 @@ function getTestEndpoint(testEndpoint: string, config: TestConfigBase, testType:
 }
 
 /**
- * Attempts to perform a speed test with a given URL
- * @param {string} url - The URL to test
- * @param {string} referrer - The referrer URL
- * @param {Function} workerFn - Worker function that performs the actual speed test
- * @param {TestConfigBase} config - Test configuration
- * @param {AbortSignal} signal - AbortSignal for cancelling the test
- * @param {TestType} testType - Type of the test
- * @returns {Promise<number>} Promise resolving to the speed measurement
- */
-async function attemptSpeedTest(
-    url: string,
-    referrer: string,
-    workerFn: (url: string, referrer: string, onProgress: (speed: number) => void, signal: AbortSignal, testType: TestType) => Promise<number>,
-    config: TestConfigBase,
-    signal: AbortSignal,
-    onProgress: (speed: number) => void
-): Promise<number> {
-    try {
-        return await workerFn(url, referrer, onProgress, signal, config.type || 'SingleFile');
-    } catch (error) {
-        throw new SpeedTestError(`Speed test failed for URL ${url}`, error as Error);
-    }
-}
-
-/**
- * Adjusts the number of active threads based on test performance
- * @param {number[]} samples - Array of speed samples from previous tests
- * @param {number} activeThreads - Current number of active threads
- * @param {SpeedStats} stats - Current test statistics
- * @param {TestConfigBase} config - Test configuration
- * @returns {number} The adjusted number of threads
- */
-function adjustThreadCount(samples: number[], activeThreads: number, stats: SpeedStats, config: TestConfigBase): number {
-    const { targetError } = { ...DEFAULT_CONFIG, ...config };
-    const maxThreads = Math.min(8, (config.thread || DEFAULT_CONFIG.thread) * 2);
-    const minThreads = Math.max(1, Math.floor((config.thread || DEFAULT_CONFIG.thread) / 2));
-
-    if (samples.length < 2) return activeThreads;
-
-    const lastSpeed = samples[samples.length - 1];
-    const prevSpeed = samples[samples.length - 2];
-    const speedDiff = Math.abs(lastSpeed - prevSpeed) / prevSpeed;
-
-    if (speedDiff > 0.2 && stats.error > targetError * 1.5) {
-        return Math.min(activeThreads + 1, maxThreads);
-    }
-    if (speedDiff < 0.1 && stats.error < targetError / 2) {
-        return Math.max(activeThreads - 1, minThreads);
-    }
-    return activeThreads;
-}
-
-/**
  * Measures speed (download or upload) using multiple threads
  * @param {string} testEndpoint - The endpoint URL for the speed test
  * @param {Function} workerFn - Worker function that performs the actual speed test
@@ -164,7 +102,8 @@ async function measureSpeed(
         throw new SpeedTestError('Upload test is not supported for SingleFile type');
     }
 
-    const mergedConfig = { ...DEFAULT_CONFIG, ...config };
+    // Merge the default test options with the user-defined options
+    const mergedConfig = { ...DEFAULT_TEST_OPTIONS, ...config };
     const {
         minTestTime,
         maxTestTime,
@@ -184,9 +123,9 @@ async function measureSpeed(
     let urlIndex = 0;
 
     if (debug) {
-        logger.debug(`[measureSpeed] initialUrl: ${initialUrl}, referrer: ${referrer}, testType: ${testType}, type: ${config.type}`);
+        logger.info(`[measureSpeed] initialUrl: ${initialUrl}, referrer: ${referrer}, testType: ${testType}, type: ${config.type}`);
         if (fallbackUrls.length > 0) {
-            logger.debug(`[measureSpeed] fallbackUrls: ${fallbackUrls.join(', ')}`);
+            logger.info(`[measureSpeed] fallbackUrls: ${fallbackUrls.join(', ')}`);
         }
     }
 
@@ -196,7 +135,7 @@ async function measureSpeed(
             throw new SpeedTestError('All URLs are unavailable');
         }
         if (debug) {
-            logger.debug(`[measureSpeed] URL ${currentUrl} is not available, trying fallback URL: ${fallbackUrls[urlIndex]}`);
+            logger.info(`[measureSpeed] URL ${currentUrl} is not available, trying fallback URL: ${fallbackUrls[urlIndex]}`);
         }
         currentUrl = fallbackUrls[urlIndex];
         urlIndex++;
@@ -311,4 +250,4 @@ async function measureUpload(
     }
 }
 
-export { measureDownload, measureUpload };
+export { measureDownload, measureUpload, SpeedTestError };

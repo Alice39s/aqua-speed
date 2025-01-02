@@ -1,9 +1,9 @@
-import type { SpeedTestOptions, TestResult, SpeedStats, LatencyResult } from '../types';
-import { measureLatency } from '../models/latencyTest';
-import { sleep, usToMs, isDebugMode } from '../utils/common';
-import { measureDownload, measureUpload } from '../models/speedTest';
-import Logger from '../utils/logger';
-import { getDomainName } from '../utils/common';
+import type { SpeedTestOptions, TestResult, SpeedStats, LatencyResult } from '@/types';
+import { measureLatency } from '@/models/latencyTest';
+import { sleep, usToMs, isDebugMode } from '@/utils/common';
+import { measureDownload, measureUpload } from '@/models';
+import Logger from '@/utils/logger';
+import { getDomainName } from '@/utils/common';
 
 const logger = new Logger();
 

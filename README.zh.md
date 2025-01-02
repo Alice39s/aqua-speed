@@ -1,5 +1,11 @@
 # :ocean: Aqua Speed
 
+<div align="center" style="margin-bottom: 20px">
+
+<img src="./assets/aqua-speed-banner-zh.png" alt="Aqua Speed - Banner" style="width: 100%; max-width: 640px; height: auto;">
+
+</div>
+
 一个使用 Bun 和 TypeScript 构建的现代网络测速 CLI 工具。
 
 <div align="center">

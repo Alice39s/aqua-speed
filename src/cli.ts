@@ -1,10 +1,11 @@
 import { program } from 'commander';
-import { runSpeedTest } from './controllers/startTest';
+import { runSpeedTest } from '@/controllers/runSpeedTest';
 import { description, version } from '../package.json';
-import { formatTestResults } from './utils/format';
-import type { TestConfig, TestDisplay } from './types';
-import { mergeTestConfig, prepareDisplayInfo } from './controllers/processOptions';
-import { getIpGeolocation } from './models/tools/getGeoIp';
+import { formatTestResults } from '@/utils/format';
+import type { TestConfig, TestDisplay } from '@/types';
+import { mergeTestConfig, prepareDisplayInfo } from '@/controllers/processOptions';
+import { getIpGeolocation, getIpGeoOnly } from '@/models/tools/getGeoIp';
+import { resolveDns } from '@/models/tools/dnsResolver';
 import chalk from 'chalk';
 import { manageDebugMode, isDebugMode } from './utils/common';
 
@@ -32,6 +33,20 @@ async function displayStart(display: TestDisplay, config: TestConfig): Promise<v
 
     console.log(chalk.yellow('Test Configuration:'));
 
+    try {
+        const resResult = await resolveDns(config.server);
+        if (resResult.ip) {
+            const ipInfo = await getIpGeoOnly(resResult.ip);
+            const { ip, region, country, org } = ipInfo;
+            const location = `${region}, ${country}`;
+
+            console.log(chalk.gray("    IP: ") + chalk.white(`${ip}`) + chalk.gray(` (${org})`));
+            console.log(chalk.gray("    Location: ") + chalk.white(location));
+        }
+    } catch (error) {
+        console.error(chalk.red('Error details:'), error);
+        process.exit(1);
+    }
 
     for (const [key, value] of Object.entries(display.testInfo)) {
         console.log(chalk.gray(`    ${key}: `) + chalk.white(value));

@@ -1,4 +1,4 @@
-import type { TestConfig, SpeedStats } from "../types";
+import type { TestConfig, SpeedStats } from '@/types';
 import psl from 'psl';
 /**
  * Sleep for a given number of milliseconds

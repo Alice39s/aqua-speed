@@ -1,6 +1,6 @@
-import * as speedtest from './controllers/startTest';
+import * as speedtest from '@/controllers/runSpeedTest';
 
-export * from './controllers/startTest';
-export type * from './types';
+export * from '@/controllers/runSpeedTest';
+export type * from '@/types';
 
 export default speedtest;

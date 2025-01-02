@@ -1,6 +1,6 @@
-import { getCloudflareColoInfo } from '../models/tools/cloudflareColo';
-import type { TestConfig, TestDisplay } from '../types';
-import { isValidUrl, getDomainName } from '../utils/common';
+import { getCloudflareColoInfo } from '@/models/tools/cloudflareColo';
+import type { TestConfig, TestDisplay } from '@/types';
+import { isValidUrl, getDomainName } from '@/utils/common';
 
 /**
  * Default Test Config
@@ -131,7 +131,7 @@ async function prepareDisplayInfo(config: TestConfig): Promise<TestDisplay> {
  */
 function createDefaultDisplayInfo(config: TestConfig): TestDisplay {
     return {
-        serverName: config.server,
+        serverName: config.server || DEFAULT_CONFIG.server,
         flags: [],
         testInfo: {
             Server: config.server || DEFAULT_CONFIG.server,

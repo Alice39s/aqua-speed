@@ -1,7 +1,7 @@
 {
   "name": "aqua-speed",
   "module": "./src/cli.ts",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A modern network speed test CLI built with Bun and TypeScript.",
   "type": "module",
   "scripts": {
@@ -24,6 +24,7 @@
   ],
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
+    "@types/bogon": "^1.0.2",
     "@types/bun": "latest",
     "@types/ping": "^0.4.4",
     "@types/psl": "^1.1.3"
@@ -33,12 +34,14 @@
   },
   "dependencies": {
     "@types/user-agents": "^1.0.4",
+    "bogon": "^1.1.0",
     "bufferutil": "^4.0.8",
     "chalk": "^5.4.0",
     "commander": "^12.1.0",
     "ora": "^8.1.1",
     "ping": "^0.4.4",
     "psl": "^1.15.0",
+    "table": "^6.9.0",
     "undici": "^7.2.0",
     "user-agents": "^1.1.396",
     "ws": "^8.18.0"

@@ -1,7 +1,7 @@
 import ora, { type Ora, type Color, type Options as OraOptions } from 'ora';
 import chalk from 'chalk';
 import readline from 'node:readline';
-import { isDebugMode } from './common';
+import { isDebugMode } from '@/utils/common';
 
 /**
  * Configuration options for the Logger

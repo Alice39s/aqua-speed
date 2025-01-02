@@ -1,4 +1,4 @@
-import type { ColoResult } from '../../types';
+import type { ColoResult } from '@/types';
 
 /**
  * Get Cloudflare CDN Colo Info

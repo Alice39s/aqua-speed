@@ -1,7 +1,7 @@
-import type { IpGeoResponse, TestConfig } from '../../types';
-import { DEFAULT_FETCH_OPTIONS, WS_OPTIONS_OOKLA } from '../../constant/fetch';
-import { isDebugMode } from '../../utils/common';
-import Logger from '../../utils/logger';
+import type { IpGeoResponse, TestConfig } from '@/types';
+import { DEFAULT_FETCH_OPTIONS, WS_OPTIONS_OOKLA } from '@/constant/fetch';
+import { isDebugMode } from '@/utils/common';
+import Logger from '@/utils/logger';
 import { type Dispatcher, fetch, Request, Response } from 'undici';
 import WebSocket from 'ws';
 
@@ -450,5 +450,37 @@ export async function getIpGeolocation(config: TestConfig): Promise<IpGeoRespons
 
         const errorMessage = error instanceof Error ? error.message : String(error);
         throw new Error(`Error getting IP geolocation: ${errorMessage}`);
+    }
+}
+
+
+/**
+ * Get geolocation information for a specific IP address
+ * @param ip - IP address to get geolocation for
+ * @returns Promise resolving to IP Geolocation Info
+ * @throws Error if failed to get geolocation
+ */
+export async function getIpGeoOnly(ip: string): Promise<IpGeoResponse> {
+    try {
+        const source = new class extends BaseIpSource {
+            async getIp(): Promise<string> {
+                throw new Error('Method not implemented.');
+            }
+            async getGeo(ip?: string): Promise<IpGeoResponse> {
+                return this.getIpInfoGeo(ip);
+            }
+        };
+        return await source.getGeo(ip);
+    } catch (error) {
+        if (isDebugMode()) {
+            logger.error(error instanceof Error ? error.message : String(error), {
+                name: error instanceof Error ? error.name : 'Unknown Error',
+                message: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            });
+        }
+
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Error getting geolocation for IP ${ip}: ${errorMessage}`);
     }
 }

@@ -1,5 +1,5 @@
 import UserAgent from 'user-agents';
-import Logger from '../utils/logger';
+import Logger from '@/utils/logger';
 import type { RequestInit, Dispatcher } from 'undici';
 import type { ClientOptions } from 'ws';
 

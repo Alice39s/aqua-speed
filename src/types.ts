@@ -49,6 +49,11 @@ export interface TestDisplay {
         speed: Record<string, string>;
         info: Record<string, string>;
     };
+    formattedTables?: {
+        latency: string;
+        speed: string;
+        info: string;
+    };
 }
 
 /**
