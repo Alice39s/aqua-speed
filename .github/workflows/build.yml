@@ -105,13 +105,34 @@ jobs:
           command: bun install
           shell: powershell
 
+      - name: Setup Windows Cache Directory
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $cacheDir = "$env:USERPROFILE\.bun\install\cache"
+          New-Item -Path $cacheDir -ItemType Directory -Force
+          $acl = Get-Acl $cacheDir
+          $rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+          $acl.SetAccessRule($rule)
+          Set-Acl $cacheDir $acl
+
       - name: Compile Code
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           bun build --compile --sourcemap --minify --bytecode \
             --target=bun-${{ matrix.platform }} \
             ./src/cli.ts \
             --outfile ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}
+
+      - name: Compile Code (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          bun build --compile --sourcemap --minify --bytecode `
+            --target=bun-${{ matrix.platform }} `
+            ./src/cli.ts `
+            --outfile "${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}.exe"
 
       - name: Generate Checksums (Linux/macOS)
         if: runner.os != 'Windows'
