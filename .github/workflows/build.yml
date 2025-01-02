@@ -79,9 +79,10 @@ jobs:
           echo "ARCHIVE_NAME=aqua-speed-${{ steps.detect_platform.outputs.PLATFORM }}_v${{ steps.get_version.outputs.VERSION }}.${{ steps.detect_platform.outputs.COMPRESS_FORMAT }}" >> $GITHUB_OUTPUT
 
       - name: Update System
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update -y
-          sudo apt-get upgrade -y
+          sudo apt-get install -y --only-upgrade tar
 
       - name: Install Dependencies
         uses: nick-fields/retry@v2
