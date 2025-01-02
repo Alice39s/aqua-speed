@@ -78,14 +78,18 @@ jobs:
           echo "BINARY_NAME=aqua-speed-${{ steps.detect_platform.outputs.PLATFORM }}_v${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_OUTPUT
           echo "ARCHIVE_NAME=aqua-speed-${{ steps.detect_platform.outputs.PLATFORM }}_v${{ steps.get_version.outputs.VERSION }}.${{ steps.detect_platform.outputs.COMPRESS_FORMAT }}" >> $GITHUB_OUTPUT
 
+      - name: Update System
+        run: |
+          sudo apt-get update -y
+          sudo apt-get upgrade -y
+
       - name: Install Dependencies
         uses: nick-fields/retry@v2
         with:
           timeout_seconds: 30
           max_attempts: 3
           retry_wait_seconds: 5
-          command: |
-            bun install --no-install-postinstall || { echo "Failed to install dependencies"; exit 1; }
+          command: bun install --no-install-postinstall || { echo "Failed to install dependencies"; exit 1; }
 
       - name: Compile Code
         shell: bash
@@ -114,7 +118,7 @@ jobs:
         working-directory: ${{ runner.temp }}/build/out
         shell: bash
         run: |
-          tar --threads=0 -c -I 'xz -5 -T0' -f ${{ steps.setup_env.outputs.ARCHIVE_NAME }} ${{ steps.setup_env.outputs.BINARY_NAME }}* checksum.txt
+          tar -c -I 'xz -5 -T0' -f ${{ steps.setup_env.outputs.ARCHIVE_NAME }} ${{ steps.setup_env.outputs.BINARY_NAME }}* checksum.txt
           rm -f ${{ steps.setup_env.outputs.BINARY_NAME }}
           cp checksum.txt ${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
 
