@@ -122,7 +122,7 @@ jobs:
       - name: Generate Checksums (Windows)
         if: runner.os == 'Windows'
         working-directory: ${{ runner.temp }}/build/out
-        shell: pwsh
+        shell: powershell
         run: |
           Get-FileHash -Algorithm SHA1 ${{ steps.setup_env.outputs.BINARY_NAME }}* | ForEach-Object { "$($_.Hash.ToLower())  $($_.Path.Split('\')[-1])" } | Out-File -Encoding utf8 checksum.txt
 
@@ -147,7 +147,7 @@ jobs:
       - name: Compress artifacts (Windows)
         if: runner.os == 'Windows'
         working-directory: ${{ runner.temp }}/build/out
-        shell: pwsh
+        shell: powershell
         run: |
           Compress-Archive -Path "${{ steps.setup_env.outputs.BINARY_NAME }}*.exe","checksum.txt" -DestinationPath "${{ steps.setup_env.outputs.ARCHIVE_NAME }}"
           Remove-Item "${{ steps.setup_env.outputs.BINARY_NAME }}*.exe"
