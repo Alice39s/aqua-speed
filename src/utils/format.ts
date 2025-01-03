@@ -3,7 +3,7 @@ import type { LatencyStats, SpeedStats, TestDisplay, TestResult } from '@/types'
 import { version } from '#/package.json';
 
 import Logger from './logger';
-const logger = new Logger();
+const logger = new Logger(); 
 
 /**
  * Base statistics interface containing common properties.

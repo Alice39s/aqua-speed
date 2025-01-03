@@ -86,71 +86,127 @@ const selectValidIPv4 = (ips: string[]): string | null => {
     return valid.length > 0 ? valid[0] : null;
 };
 
+const selectValidIPv6 = (ips: string[]): string | null => {
+    const valid = ips.filter(ip => ip && !bogon(ip));
+    return valid.length > 0 ? valid[0] : null;
+};
+
+/**
+ * Attempts to resolve DNS for a given URL, prioritizing the specified IP preference.
+ * Follows a resolution strategy of trying system DNS first, then falling back to DoH providers.
+ *
+ * @param {string} url The URL to resolve the DNS for.
+ * @param {PrefType} pref The preferred IP version (4 for IPv4, 6 for IPv6, null for any).
+ * @returns {Promise<DnsResult>} An object containing the resolved IP address, if found.
+ */
 export async function resolveDns(url: string, pref: PrefType = null): Promise<DnsResult> {
     const realDomain = new URL(url).hostname;
     const result: DnsResult = {};
-    let ipv4s: string[] = [];
-    let ipv6s: string[] = [];
 
-    logger.debug(`[Resolve DNS] Domain: ${realDomain}`)
+    logger.debug(`[Resolve DNS] Domain: ${realDomain}, Preference: ${pref}`);
 
     if (!psl.isValid(realDomain)) {
-        logger.debug(`[Resolve DNS] ${realDomain} is not a valid domain.`)
+        logger.debug(`[Resolve DNS] ${realDomain} is not a valid domain.`);
         return result;
     }
 
-    try {
-        // Using system DNS
-        if (pref === 4 || pref === null) {
-            try {
-                ipv4s = await resolve4Async(realDomain);
-                const validIPv4 = selectValidIPv4(ipv4s);
-                if (validIPv4) {
-                    result.ip = validIPv4;
-                    return result;
-                }
-            } catch (error) {
-                console.warn(`IPv4 system DNS resolution failed: ${(error as Error).message}`);
+    // Helper function to attempt resolving with system DNS for a specific IP version.
+    const attemptSystemDns = async (ipVersion: 4 | 6): Promise<string[]> => {
+        try {
+            if (ipVersion === 4) {
+                return await resolve4Async(realDomain);
+            } else {
+                return await resolve6Async(realDomain);
             }
+        } catch (error) {
+            console.warn(`IPv${ipVersion} system DNS resolution failed: ${(error as Error).message}`);
+            return [];
         }
+    };
 
-        if (pref === 6 || pref === null) {
-            try {
-                ipv6s = await resolve6Async(realDomain);
-                if (ipv6s.length > 0) {
-                    result.ip = ipv6s[0];
-                    return result;
-                }
-            } catch (error) {
-                console.warn(`IPv6 system DNS resolution failed: ${(error as Error).message}`);
-            }
-        }
-
-        // Try DoH
+    // Helper function to attempt resolving with DoH providers for a specific IP version.
+    const attemptDoH = async (ipVersion: 4 | 6): Promise<string[]> => {
+        const type = ipVersion === 4 ? 'A' : 'AAAA';
+        let resolvedIps: string[] = [];
         for (const provider of providers) {
-            if (pref === 6 || pref === null) {
-                const fetchedIPv6s = await provider.resolve(realDomain, 'AAAA');
-                if (fetchedIPv6s.length > 0) {
-                    result.ip = fetchedIPv6s[0];
-                    return result;
+            try {
+                const ips = await provider.resolve(realDomain, type);
+                resolvedIps = resolvedIps.concat(ips);
+                // Resolve successfully with the first provider, then break.
+                if (resolvedIps.length > 0) {
+                    logger.debug(`[Resolve DNS] Resolved IPv${ipVersion} with DoH provider: ${provider.name}`);
+                    break;
                 }
-            }
-
-            if (pref === 4 || pref === null) {
-                const fetchedIPv4s = await provider.resolve(realDomain, 'A');
-                const validIPv4 = selectValidIPv4(fetchedIPv4s);
-                if (validIPv4) {
-                    result.ip = validIPv4;
-                    return result;
-                }
+            } catch (error) {
+                console.warn(`DoH resolution with ${provider.name} failed: ${(error as Error).message}`);
             }
         }
+        return resolvedIps;
+    };
 
-        // Fallback ''
-        return result;
+    // Prioritize resolution based on the 'pref' parameter.
+    if (pref === 4 || pref === null) {
+        // Try system DNS for IPv4.
+        const ipv4sFromSystem = await attemptSystemDns(4);
+        const validIPv4 = selectValidIPv4(ipv4sFromSystem);
+        if (validIPv4) {
+            result.ip = validIPv4;
+            logger.debug(`[Resolve DNS] Resolved with system DNS (IPv4): ${validIPv4}`);
+            return result;
+        }
 
-    } catch (error) {
-        console.warn(`DNS resolution error: ${(error as Error).message}`);
-        return result;
+        // Fallback to DoH for IPv4.
+        if (pref === null) { // Only fallback to DoH if no specific preference against it
+            const ipv4sFromDoH = await attemptDoH(4);
+            const validIPv4FromDoH = selectValidIPv4(ipv4sFromDoH);
+            if (validIPv4FromDoH) {
+                result.ip = validIPv4FromDoH;
+                return result;
+            }
+        }
     }
+
+    if (pref === 6 || pref === null) {
+        // Try system DNS for IPv6.
+        const ipv6sFromSystem = await attemptSystemDns(6);
+        const validIPv6 = selectValidIPv6(ipv6sFromSystem);
+        if (validIPv6) {
+            result.ip = validIPv6;
+            logger.debug(`[Resolve DNS] Resolved with system DNS (IPv6): ${validIPv6}`);
+            return result;
+        }
+
+        // Fallback to DoH for IPv6.
+        if (pref === null) { // Only fallback to DoH if no specific preference against it
+            const ipv6sFromDoH = await attemptDoH(6);
+            const validIPv6FromDoH = selectValidIPv6(ipv6sFromDoH);
+            if (validIPv6FromDoH) {
+                result.ip = validIPv6FromDoH;
+                return result;
+            }
+        }
+    }
+
+    // If specific preference for IPv4 was set but failed, try DoH for IPv4 as a last resort.
+    if (pref === 4) {
+        const ipv4sFromDoH = await attemptDoH(4);
+        const validIPv4FromDoH = selectValidIPv4(ipv4sFromDoH);
+        if (validIPv4FromDoH) {
+            result.ip = validIPv4FromDoH;
+            return result;
+        }
+    }
+
+    // If specific preference for IPv6 was set but failed, try DoH for IPv6 as a last resort.
+    if (pref === 6) {
+        const ipv6sFromDoH = await attemptDoH(6);
+        const validIPv6FromDoH = selectValidIPv6(ipv6sFromDoH);
+        if (validIPv6FromDoH) {
+            result.ip = validIPv6FromDoH;
+            return result;
+        }
+    }
+
+    logger.debug(`[Resolve DNS] No valid IP found for ${realDomain}.`);
+    return result;
 }

@@ -118,12 +118,12 @@ async function main() {
             .option('--timeout <seconds>', 'Test timeout in seconds', Number.parseInt)
             .option('--debug', 'Debug mode')
             .option('--type <type>', 'Default: SingleFile, options: LibreSpeed, Ookla, Cloudflare', 'Cloudflare') // TODO: Ookla is not supported yet
-            // .option('--ns, --no-speedtest', 'Disable speed test')      
-            // .option('--nl, --no-latency', 'Disable latency test')      
-            // .option('--nu, --no-upload', 'Disable upload test')        
-            // .option('--ni, --no-icmp', 'Disable ICMP latency test')    
-            // .option('--nt, --no-tcp', 'Disable TCP latency test')      
-            // .option('--nh, --no-http', 'Disable HTTP latency test')    
+            // .option('--ns, --no-speedtest', 'Disable speed test')
+            // .option('--nl, --no-latency', 'Disable latency test')
+            // .option('--nu, --no-upload', 'Disable upload test')
+            // .option('--ni, --no-icmp', 'Disable ICMP latency test')
+            // .option('--nt, --no-tcp', 'Disable TCP latency test')
+            // .option('--nh, --no-http', 'Disable HTTP latency test')
             .parse(process.argv)
             .opts();
 
@@ -135,18 +135,25 @@ async function main() {
         await displayStart(display, config);
 
         try {
+            const startTime = process.hrtime(); // Perf: Start Timing
+
             const result = await runSpeedTest({
                 testEndpoint: config.server,
                 thread: config.thread,
                 timeout: config.timeout,
                 type: config.type
             });
-
+            
+            const endTime = process.hrtime(startTime); // End Timing
+            const elapsedTimeInS = endTime[0] + (endTime[1] / 1e9); // Converts to seconds
             formatTestResults(result, display);
+            display.results.info['Total Time'] = `${elapsedTimeInS.toFixed(2)}s`;
+            
             displayResults(display);
+
             process.exit(0);
         } catch (error) {
-            console.error(chalk.red('Error details:'), error);
+            console.error('Speed test error:', error);
             process.exit(1);
         }
     } catch (error) {
