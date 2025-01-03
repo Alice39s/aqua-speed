@@ -132,18 +132,78 @@ jobs:
         shell: powershell
         continue-on-error: true
         run: |
+          # Define variables
           $buildDir = "${{ runner.temp }}/build/out"
+          $outFileName = "${{ steps.setup_env.outputs.BINARY_NAME }}.exe"
+          $outFilePath = "$buildDir/$outFileName"
 
-          bun build --compile --sourcemap --minify --bytecode `
-            --target=bun-${{ matrix.platform }} `
-            ./src/cli.ts --outfile out
+          # Ensure build directory exists
+          try {
+            if (-not (Test-Path $buildDir)) {
+              New-Item -Path $buildDir -ItemType Directory -Force | Out-Null
+              Write-Output "Created build directory: $buildDir"
+            }
+          } catch {
+            Write-Error "Failed to create build directory: $_"
+            exit 1
+          }
 
+          # Run bun build command
+          try {
+            Write-Output "Starting bun build..."
+            bun build --compile --sourcemap --minify --bytecode `
+              --target=bun-${{ matrix.platform }} `
+              ./src/cli.ts --outfile out
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "Bun build failed with exit code $LASTEXITCODE"
+            }
+          } catch {
+            Write-Error "Build command failed: $_"
+            exit 1
+          }
+
+          # Wait for file system to settle
+          Write-Output "Waiting for build process to complete..."
           Start-Sleep -Seconds 2
 
-          $bunBuild = Get-ChildItem -Path "." -Filter "*.bun-build" | Select-Object -First 1
-          if ($bunBuild) {
-            Move-Item $bunBuild.FullName "$buildDir/${{ steps.setup_env.outputs.BINARY_NAME }}.exe" -Force
+          # Find and move the build file
+          try {
+            $bunBuild = Get-ChildItem -Path "." -Filter "*.bun-build" -ErrorAction Stop | Select-Object -First 1
+            
+            if ($bunBuild) {
+              Write-Output "Found build file: $($bunBuild.FullName)"
+              
+              # Check if destination file exists and try to remove it
+              if (Test-Path $outFilePath) {
+                Remove-Item $outFilePath -Force -ErrorAction Stop
+                Write-Output "Removed existing output file"
+              }
+              
+              # Move the file
+              Move-Item $bunBuild.FullName $outFilePath -Force -ErrorAction Stop
+              
+              if (Test-Path $outFilePath) {
+                Write-Output "Successfully moved build file to: $outFilePath"
+              } else {
+                throw "File move appeared to succeed but target file does not exist"
+              }
+            } else {
+              throw "No .bun-build file found in the current directory"
+            }
+          } catch {
+            Write-Error "Failed to process build file: $_"
+            exit 1
           }
+
+          # Verify final output
+          if (-not (Test-Path $outFilePath)) {
+            Write-Error "Build process completed but output file is missing"
+            exit 1
+          }
+
+          Write-Output "Build process completed successfully"
+
       - name: Generate Checksums (Linux/macOS)
         if: runner.os != 'Windows'
         working-directory: ${{ runner.temp }}/build/out
@@ -155,20 +215,72 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          $buildDir = "${{ runner.temp }}/build/out"
-          if (!(Test-Path $buildDir)) {
-            New-Item -ItemType Directory -Path $buildDir -Force
-          }
-          Set-Location $buildDir
+          try {
+            # Define variables
+            $buildDir = "${{ runner.temp }}/build/out"
+            $checksumFile = "checksum.txt"
+            $binaryPattern = "${{ steps.setup_env.outputs.BINARY_NAME }}*"
+            
+            # Create build directory if it doesn't exist
+            if (!(Test-Path $buildDir)) {
+              Write-Output "Creating build directory: $buildDir"
+              New-Item -ItemType Directory -Path $buildDir -Force -ErrorAction Stop | Out-Null
+            }
 
-          $files = Get-ChildItem -Filter "${{ steps.setup_env.outputs.BINARY_NAME }}*"
-          if ($files) {
-            $files | ForEach-Object {
-              $hash = Get-FileHash -Algorithm SHA1 -Path $_.FullName
-              "$($hash.Hash.ToLower())  $($_.Name)" 
-            } | Set-Content -Path "checksum.txt" -Encoding utf8
-          } else {
-            Write-Error "No files found matching pattern: ${{ steps.setup_env.outputs.BINARY_NAME }}*"
+            # Change to build directory
+            Write-Output "Changing to directory: $buildDir"
+            Set-Location $buildDir -ErrorAction Stop
+
+            # Get files matching pattern
+            Write-Output "Searching for files matching pattern: $binaryPattern"
+            $files = Get-ChildItem -Filter $binaryPattern -ErrorAction Stop
+            
+            if ($files) {
+              Write-Output "Found $($files.Count) file(s) to process"
+              
+              # Create array to store checksum entries
+              $checksums = @()
+              
+              # Generate checksums
+              foreach ($file in $files) {
+                try {
+                  Write-Output "Calculating SHA1 hash for: $($file.Name)"
+                  $hash = Get-FileHash -Algorithm SHA1 -Path $file.FullName -ErrorAction Stop
+                  $checksumEntry = "$($hash.Hash.ToLower())  $($file.Name)"
+                  $checksums += $checksumEntry
+                  Write-Output "Generated checksum: $checksumEntry"
+                }
+                catch {
+                  Write-Error "Failed to generate hash for $($file.Name): $_"
+                  exit 1
+                }
+              }
+              
+              # Write checksums to file
+              try {
+                Write-Output "Writing checksums to $checksumFile"
+                $checksums | Set-Content -Path $checksumFile -Encoding utf8 -ErrorAction Stop
+                
+                # Verify the checksum file was created
+                if (Test-Path $checksumFile) {
+                  Write-Output "Successfully created checksum file: $checksumFile"
+                  Write-Output "Checksum file contents:"
+                  Get-Content $checksumFile | ForEach-Object { Write-Output $_ }
+                } else {
+                  throw "Checksum file was not created"
+                }
+              }
+              catch {
+                Write-Error "Failed to write checksum file: $_"
+                exit 1
+              }
+            } else {
+              throw "No files found matching pattern: $binaryPattern"
+            }
+          }
+          catch {
+            Write-Error "Checksum generation failed: $_"
+            exit 1
           }
 
       - name: Compress artifacts (Linux)
