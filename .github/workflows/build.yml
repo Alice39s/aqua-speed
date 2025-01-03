@@ -48,7 +48,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2.0.1
         with:
-          bun-version: canary
+          bun-version: latest
 
       - name: Detect Platform and Compress Format
         id: detect_platform
