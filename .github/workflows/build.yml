@@ -74,8 +74,13 @@ jobs:
               id: setup_env
               shell: bash
               run: |
-                  mkdir -p ${{ runner.temp }}/build/out
-                  mkdir -p ${{ runner.temp }}/build/logs
+                  if [[ "${{ runner.os }}" == "Windows" ]]; then
+                    mkdir -p "C:/build/out"
+                    mkdir -p "C:/build/logs"
+                  else
+                    mkdir -p ${{ runner.temp }}/build/out
+                    mkdir -p ${{ runner.temp }}/build/logs
+                  fi
                   echo "BINARY_NAME=aqua-speed-${{ steps.detect_platform.outputs.PLATFORM }}_v${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_OUTPUT
                   echo "ARCHIVE_NAME=aqua-speed-${{ steps.detect_platform.outputs.PLATFORM }}_v${{ steps.get_version.outputs.VERSION }}.${{ steps.detect_platform.outputs.COMPRESS_FORMAT }}" >> $GITHUB_OUTPUT
 
@@ -125,30 +130,14 @@ jobs:
                     ./src/cli.ts \
                     --outfile ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}
 
-            # https://github.com/oven-sh/bun/discussions/12247
-            # FIXME: Workaround!!!
             - name: Compile Code (Windows)
               if: runner.os == 'Windows'
               shell: powershell
               continue-on-error: true
               run: |
-                  # Define variables
-                  $buildDir = "C:\build\out"
                   $outFileName = "${{ steps.setup_env.outputs.BINARY_NAME }}.exe"
-                  $outFilePath = Join-Path $buildDir $outFileName
+                  $outFilePath = "C:/build/out/$outFileName"
 
-                  # Ensure build directory exists
-                  try {
-                      if (-not (Test-Path $buildDir)) {
-                          New-Item -Path $buildDir -ItemType Directory -Force | Out-Null
-                          Write-Output "Created build directory: $buildDir"
-                      }
-                  } catch {
-                      Write-Error "Failed to create build directory: $_"
-                      exit 1
-                  }
-
-                  # Run bun build command with direct output path
                   try {
                       Write-Output "Starting bun build..."
                       bun build --compile --sourcemap --minify --bytecode `
@@ -163,7 +152,6 @@ jobs:
                       exit 1
                   }
 
-                  # Verify final output
                   if (-not (Test-Path $outFilePath)) {
                       Write-Error "Build process completed but output file is missing"
                       exit 1
@@ -182,72 +170,20 @@ jobs:
               if: runner.os == 'Windows'
               shell: powershell
               run: |
-                  try {
-                    # Define variables
-                    $buildDir = "${{ runner.temp }}/build/out"
-                    $checksumFile = "checksum.txt"
-                    $binaryPattern = "${{ steps.setup_env.outputs.BINARY_NAME }}*"
-                    
-                    # Create build directory if it doesn't exist
-                    if (!(Test-Path $buildDir)) {
-                      Write-Output "Creating build directory: $buildDir"
-                      New-Item -ItemType Directory -Path $buildDir -Force -ErrorAction Stop | Out-Null
-                    }
+                  Set-Location "C:/build/out"
+                  $binaryPattern = "${{ steps.setup_env.outputs.BINARY_NAME }}*"
+                  $files = Get-ChildItem -Filter $binaryPattern
 
-                    # Change to build directory
-                    Write-Output "Changing to directory: $buildDir"
-                    Set-Location $buildDir -ErrorAction Stop
-
-                    # Get files matching pattern
-                    Write-Output "Searching for files matching pattern: $binaryPattern"
-                    $files = Get-ChildItem -Filter $binaryPattern -ErrorAction Stop
-                    
-                    if ($files) {
-                      Write-Output "Found $($files.Count) file(s) to process"
-                      
-                      # Create array to store checksum entries
+                  if ($files) {
                       $checksums = @()
-                      
-                      # Generate checksums
                       foreach ($file in $files) {
-                        try {
-                          Write-Output "Calculating SHA1 hash for: $($file.Name)"
-                          $hash = Get-FileHash -Algorithm SHA1 -Path $file.FullName -ErrorAction Stop
-                          $checksumEntry = "$($hash.Hash.ToLower())  $($file.Name)"
-                          $checksums += $checksumEntry
-                          Write-Output "Generated checksum: $checksumEntry"
-                        }
-                        catch {
-                          Write-Error "Failed to generate hash for $($file.Name): $_"
-                          exit 1
-                        }
+                          $hash = Get-FileHash -Algorithm SHA1 -Path $file.FullName
+                          $checksums += "$($hash.Hash.ToLower())  $($file.Name)"
                       }
-                      
-                      # Write checksums to file
-                      try {
-                        Write-Output "Writing checksums to $checksumFile"
-                        $checksums | Set-Content -Path $checksumFile -Encoding utf8 -ErrorAction Stop
-                        
-                        # Verify the checksum file was created
-                        if (Test-Path $checksumFile) {
-                          Write-Output "Successfully created checksum file: $checksumFile"
-                          Write-Output "Checksum file contents:"
-                          Get-Content $checksumFile | ForEach-Object { Write-Output $_ }
-                        } else {
-                          throw "Checksum file was not created"
-                        }
-                      }
-                      catch {
-                        Write-Error "Failed to write checksum file: $_"
-                        exit 1
-                      }
-                    } else {
-                      throw "No files found matching pattern: $binaryPattern"
-                    }
-                  }
-                  catch {
-                    Write-Error "Checksum generation failed: $_"
-                    exit 1
+                      $checksums | Set-Content -Path "checksum.txt" -Encoding utf8
+                  } else {
+                      Write-Error "No files found matching pattern: $binaryPattern"
+                      exit 1
                   }
 
             - name: Compress artifacts (Linux)
@@ -272,12 +208,7 @@ jobs:
               if: runner.os == 'Windows'
               shell: powershell
               run: |
-                  $buildDir = "${{ runner.temp }}/build/out"
-                  if (!(Test-Path $buildDir)) {
-                    New-Item -ItemType Directory -Path $buildDir -Force
-                  }
-                  Set-Location $buildDir
-
+                  Set-Location "C:/build/out"
                   $files = Get-ChildItem -Path "${{ steps.setup_env.outputs.BINARY_NAME }}*.exe", "checksum.txt"
                   if ($files) {
                     Compress-Archive -Path $files -DestinationPath "${{ steps.setup_env.outputs.ARCHIVE_NAME }}" -Force
@@ -287,13 +218,24 @@ jobs:
                     Write-Error "No files found to compress"
                   }
 
-            - name: Upload build artifacts
+            - name: Upload build artifacts (Linux/macOS)
+              if: runner.os != 'Windows'
               uses: actions/upload-artifact@v4
               with:
                   name: ${{ steps.setup_env.outputs.ARCHIVE_NAME }}
                   path: |
                       ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.ARCHIVE_NAME }}
                       ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
+                  retention-days: 1
+
+            - name: Upload build artifacts (Windows)
+              if: runner.os == 'Windows'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ steps.setup_env.outputs.ARCHIVE_NAME }}
+                  path: |
+                      C:/build/out/${{ steps.setup_env.outputs.ARCHIVE_NAME }}
+                      C:/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
                   retention-days: 1
 
     release:
