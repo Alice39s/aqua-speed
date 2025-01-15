@@ -2,15 +2,106 @@ import { program } from 'commander';
 import { runSpeedTest } from '@/controllers/runSpeedTest';
 import { description, version } from '../package.json';
 import { formatTestResults } from '@/utils/format';
-import type { TestConfig, TestDisplay } from '@/types';
+import type { TestConfig, TestDisplay, IpGeoResponse } from '@/types';
 import { mergeTestConfig, prepareDisplayInfo } from '@/controllers/processOptions';
 import { getIpGeolocation, getIpGeoOnly } from '@/models/tools/getGeoIp';
 import { resolveDns } from '@/models/tools/dnsResolver';
 import chalk from 'chalk';
-import { manageDebugMode, isDebugMode } from './utils/common';
+import { manageDebugMode, isDebugMode, maskIpAddress, countryCodeToFlagEmoji } from './utils/common';
 
 if (isDebugMode()) {
     console.log(chalk.green('Debug mode enabled'));
+}
+
+/**
+ * Display ASCII Logo
+ */
+function displayLogo(): void {
+    const logoLines = [
+        "\n                               _____                     _ ",
+        "     /\\                       / ____|                   | |",
+        "    /  \\   __ _ _   _  __ _  | (___  _ __   ___  ___  __| |",
+        "   / /\\ \\ / _` | | | |/ _` |  \\___ \\| '_ \\ / _ \\/ _ \\/ _` |",
+        "  / ____ \\ (_| | |_| | (_| |  ____) | |_) |  __/  __/ (_| |",
+        " /_/    \\_\\__, |\\__,_|\\__,_| |_____/| .__/ \\___|\\___|\\__,_|",
+        "             | |                    | |                    ",
+        "             |_|                    |_|                    \n"
+    ];
+
+    for (const line of logoLines) console.log(chalk.cyan(line));
+}
+
+/**
+ * Display Version Info
+ */
+function displayVersion(): void {
+    console.warn(chalk.bold(`\nAqua Speed v${version}\n`));
+    console.warn(chalk.gray(`  - ${description}\n`));
+}
+
+/**
+ * Format and display location info
+ */
+function formatLocationInfo(ipInfo: IpGeoResponse): string[] {
+    const { ip, region, country, org, anycast } = ipInfo;
+    const location = anycast ? 'Anycast IP' : `${region}, ${country}`;
+
+    return [
+        chalk.gray("    IP: ") + chalk.white(`${ip}`) + chalk.gray(` (${org})`),
+        chalk.gray("    Location: ") + chalk.white(location)
+    ];
+}
+
+/**
+ * Display server information
+ */
+async function displayServerInfo(config: TestConfig): Promise<void> {
+    console.log(chalk.yellow('Test Configuration:'));
+
+    try {
+        const resResult = await resolveDns(config.server);
+        if (resResult.ip) {
+            const ipInfo = await getIpGeoOnly(resResult.ip);
+            const locationInfo = formatLocationInfo(ipInfo);
+            for (const line of locationInfo) console.log(line);
+        }
+    } catch (error) {
+        console.error(chalk.red('Error details:'), error);
+        process.exit(1);
+    }
+}
+
+/**
+ * Display test configuration
+ */
+function displayTestConfig(display: TestDisplay): void {
+    for (const [key, value] of Object.entries(display.testInfo)) {
+        console.log(chalk.gray(`    ${key}: `) + chalk.white(value));
+    }
+    if (display.flags.length) {
+        console.log(chalk.gray("    Flags: ") + chalk.white(display.flags.join(', ')));
+    }
+}
+
+/**
+ * Display client information
+ */
+async function displayClientInfo(config: TestConfig): Promise<void> {
+    console.log(chalk.yellow('\nClient Information:'));
+
+    try {
+        const ipInfo = await getIpGeolocation(config);
+        const { ip, region, country, org } = ipInfo;
+        const countryEmoji = countryCodeToFlagEmoji(country);
+        const location = `${countryEmoji}  ${region}`;
+        const maskedIp = maskIpAddress(ip, config.privacy);
+
+        console.log(chalk.gray("    IP: ") + chalk.white(`${maskedIp}`) + chalk.gray(` (${org})`));
+        console.log(chalk.gray("    Location: ") + chalk.white(location));
+    } catch (error) {
+        console.error(chalk.red('Error details:'), error);
+        process.exit(1);
+    }
 }
 
 /**
@@ -20,55 +111,11 @@ if (isDebugMode()) {
  * @returns Promise<void>
  */
 async function displayStart(display: TestDisplay, config: TestConfig): Promise<void> {
-    console.log(chalk.cyan("\n                               _____                     _ "));
-    console.log(chalk.cyan("     /\\                       / ____|                   | |"));
-    console.log(chalk.cyan("    /  \\   __ _ _   _  __ _  | (___  _ __   ___  ___  __| |"));
-    console.log(chalk.cyan("   / /\\ \\ / _` | | | |/ _` |  \\___ \\| '_ \\ / _ \\/ _ \\/ _` |"));
-    console.log(chalk.cyan("  / ____ \\ (_| | |_| | (_| |  ____) | |_) |  __/  __/ (_| |"));
-    console.log(chalk.cyan(" /_/    \\_\\__, |\\__,_|\\__,_| |_____/| .__/ \\___|\\___|\\__,_|"));
-    console.log(chalk.cyan("             | |                    | |                    "));
-    console.log(chalk.cyan("             |_|                    |_|                    "));
-    console.warn(chalk.bold(`\nAqua Speed v${version}\n`));
-    console.warn(chalk.gray(`  - ${description}\n`));
-
-    console.log(chalk.yellow('Test Configuration:'));
-
-    try {
-        const resResult = await resolveDns(config.server);
-        if (resResult.ip) {
-            const ipInfo = await getIpGeoOnly(resResult.ip);
-            const { ip, region, country, org } = ipInfo;
-            const location = `${region}, ${country}`;
-
-            console.log(chalk.gray("    IP: ") + chalk.white(`${ip}`) + chalk.gray(` (${org})`));
-            console.log(chalk.gray("    Location: ") + chalk.white(location));
-        }
-    } catch (error) {
-        console.error(chalk.red('Error details:'), error);
-        process.exit(1);
-    }
-
-    for (const [key, value] of Object.entries(display.testInfo)) {
-        console.log(chalk.gray(`    ${key}: `) + chalk.white(value));
-    }
-    if (display.flags.length) {
-        console.log(chalk.gray("    Flags: ") + chalk.white(display.flags.join(', ')));
-    }
-
-    console.log(chalk.yellow('\nClient Information:'));
-
-
-    try {
-        const ipInfo = await getIpGeolocation(config);
-        const { ip, region, country, org } = ipInfo;
-        const location = `${region}, ${country}`;
-
-        console.log(chalk.gray("    IP: ") + chalk.white(`${ip}`) + chalk.gray(` (${org})`));
-        console.log(chalk.gray("    Location: ") + chalk.white(location));
-    } catch (error) {
-        console.error(chalk.red('Error details:'), error);
-        process.exit(1);
-    }
+    displayLogo();
+    displayVersion();
+    await displayServerInfo(config);
+    displayTestConfig(display);
+    await displayClientInfo(config);
 
     console.log(chalk.cyan('\nInitializing speed test...\n'));
 }
@@ -116,7 +163,8 @@ async function main() {
             .option('--sn <name>', 'Speed test server name')
             .option('-t, --thread <number>', 'Number of concurrent connections', Number.parseInt)
             .option('--timeout <seconds>', 'Test timeout in seconds', Number.parseInt)
-            .option('--debug', 'Debug mode')
+            .option('--debug', 'Debug mode', false)
+            .option('--privacy', 'Privacy mode (Display the local address instead of real IP)', false)
             .option('--type <type>', 'Default: SingleFile, options: LibreSpeed, Ookla, Cloudflare', 'Cloudflare') // TODO: Ookla is not supported yet
             // .option('--ns, --no-speedtest', 'Disable speed test')
             // .option('--nl, --no-latency', 'Disable latency test')
@@ -143,12 +191,12 @@ async function main() {
                 timeout: config.timeout,
                 type: config.type
             });
-            
+
             const endTime = process.hrtime(startTime); // End Timing
             const elapsedTimeInS = endTime[0] + (endTime[1] / 1e9); // Converts to seconds
             formatTestResults(result, display);
             display.results.info['Total Time'] = `${elapsedTimeInS.toFixed(2)}s`;
-            
+
             displayResults(display);
 
             process.exit(0);

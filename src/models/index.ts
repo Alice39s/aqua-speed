@@ -152,6 +152,20 @@ async function measureSpeed(
         spinner.text = `Testing ${testType} speed... ${speedFormat} (${activeThreads} threads)`;
     }, progressInterval);
 
+    const progressBar = logger.createProgressBar(`${testType.charAt(0).toUpperCase() + testType.slice(1)} Speed Test`, {
+        format: ' {bar} | {percentage}% | {speed} Mbps | {value}/{total} MB'
+    });
+
+    progressBar.start(0, 0, { speed: '0.00', value: '0.00', total: 'Unknown' });
+
+    const onProgress = (speed: number, bytesTransferred: number) => {
+        const mbTransferred = bytesTransferred / (1024 * 1024);
+        progressBar.update(Math.min(99, mbTransferred), {
+            speed: (speed / 1000000).toFixed(2),
+            value: mbTransferred.toFixed(2)
+        });
+    };
+
     try {
         while (true) {
             const elapsedTime = performance.now() - startTime;
@@ -205,8 +219,10 @@ async function measureSpeed(
 
         return calculateStats(samples);
     } catch (error) {
+        progressBar.stop();
         throw new SpeedTestError(`Error during ${testType} speed test`, error as Error);
     } finally {
+        progressBar.stop();
         clearInterval(updateInterval);
         controller.abort();
     }

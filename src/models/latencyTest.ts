@@ -238,10 +238,12 @@ async function measureHTTPLatency(url: URL, type: TestType): Promise<number> {
     // Try HTTP/2 latency measurement
     const h2Result = await measureHTTPLatencyH2(testUrl, options);
     if (h2Result !== -2) {
+        logger.debug(`[measureHTTPLatency] HTTP/2 latency: ${h2Result / 1000} ms`);
         return h2Result;
     }
 
     // If HTTP/2 is not supported, fallback to HTTP/1.1
+    logger.debug('[measureHTTPLatency] HTTP/2 is not supported, falling back to HTTP/1.1');
     const controller = new AbortController();
     const start = process.hrtime.bigint();
 

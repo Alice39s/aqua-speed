@@ -2,6 +2,7 @@ import ora, { type Ora, type Color, type Options as OraOptions } from 'ora';
 import chalk from 'chalk';
 import readline from 'node:readline';
 import { isDebugMode } from '@/utils/common';
+import cliProgress from 'cli-progress';
 
 /**
  * Configuration options for the Logger
@@ -104,6 +105,32 @@ class Logger {
   }
 
   /**
+   * Creates a progress bar instance with a custom message and options.
+   *
+   * @param {string} message - The message to display alongside the progress bar.
+   * @param {cliProgress.Options} [options={}] - Additional options for configuring the progress bar.
+   *
+   * @returns {cliProgress.SingleBar} - A new instance of `cliProgress.SingleBar` configured with the provided message and options.
+   *
+   * @example
+   * const progressBar = logger.createProgressBar('Processing', { total: 100 });
+   * progressBar.start(100, 0);
+   * progressBar.update(50);
+   * progressBar.stop();
+   */
+  createProgressBar(message: string, options: cliProgress.Options = {}): cliProgress.SingleBar {
+    const bar = new cliProgress.SingleBar({
+      format: `${message} |{bar}| {percentage}% | {value}/{total}`,
+      barCompleteChar: '\u2588',
+      barIncompleteChar: '\u2591',
+      hideCursor: true,
+      ...options
+    });
+
+    return bar;
+  }
+
+  /** 
    * Starts a spinner with given ID and optional text
    * @param id - Unique identifier for the spinner
    * @param text - Optional text to display on the spinner

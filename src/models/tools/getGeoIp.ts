@@ -10,15 +10,6 @@ const logger = new Logger();
 type FetchError = Error & { response?: Response };
 type WebSocketError = Error & { code?: number };
 
-interface IpInfoResponse {
-    ip: string;
-    city: string;
-    region: string;
-    country: string;
-    org: string;
-    [key: string]: unknown;
-}
-
 /**
  * Interface for IP source implementations
  */
@@ -163,13 +154,16 @@ abstract class BaseIpSource implements IpSource {
             const url = `${baseUrl}${tokenParam}`;
 
             const response = await this.fetchWithErrorHandling(url);
-            const data = await response.json() as IpInfoResponse;
+            const data = await response.json() as IpGeoResponse;
 
             return {
                 ip: ip || data.ip,
+                hostname: data.hostname,
                 city: data.city,
                 region: data.region,
                 country: data.country,
+                timezone: data.timezone,
+                anycast: data?.anycast || false,
                 org: data.org
             };
         } catch (error) {

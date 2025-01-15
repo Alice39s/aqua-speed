@@ -11,6 +11,7 @@ export const DEFAULT_CONFIG: TestConfig = {
     sn: 'Cloudflare', // server name
     type: 'Cloudflare', // options: SingleFile, LibreSpeed, Cloudflare, Ookla
     debug: false,
+    privacy: false,
     thread: 4,
     timeout: 30,
     speedtest: true,
@@ -69,7 +70,7 @@ async function prepareDisplayInfo(config: TestConfig): Promise<TestDisplay> {
             try {
                 const coloInfo = await getCloudflareColoInfo(config.server);
                 if (coloInfo?.colo) {
-                    serverName = `${serverName} (${coloInfo.colo})`;
+                    serverName = `${serverName} (DC: ${coloInfo.colo})`;
                     if (coloInfo.region) {
                         flags.push(coloInfo.region);
                     }

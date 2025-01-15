@@ -1,64 +1,67 @@
 {
-  "name": "aqua-speed",
-  "module": "./src/cli.ts",
-  "version": "1.0.3",
-  "description": "A modern network speed test CLI built with Bun and TypeScript.",
-  "type": "module",
-  "scripts": {
-    "build": "bun build ./src/cli.ts --outdir dist",
-    "start": "bun run src/cli.ts",
-    "dev": "bun --watch src/cli.ts",
-    "test": "bun test",
-    "lint": "biome check --write",
-    "format": "biome format --write"
-  },
-  "author": "Alice39s",
-  "license": "GPL-3.0-only",
-  "keywords": [
-    "speedtest",
-    "cli",
-    "cdn",
-    "network",
-    "performance",
-    "bun"
-  ],
-  "devDependencies": {
-    "@biomejs/biome": "1.9.4",
-    "@types/bogon": "^1.0.2",
-    "@types/bun": "latest",
-    "@types/ping": "^0.4.4",
-    "@types/psl": "^1.1.3"
-  },
-  "peerDependencies": {
-    "typescript": "^5.0.0"
-  },
-  "dependencies": {
-    "@types/user-agents": "^1.0.4",
-    "bogon": "^1.1.0",
-    "bufferutil": "^4.0.8",
-    "chalk": "^5.4.0",
-    "commander": "^12.1.0",
-    "ora": "^8.1.1",
-    "ping": "^0.4.4",
-    "psl": "^1.15.0",
-    "table": "^6.9.0",
-    "undici": "^7.2.0",
-    "user-agents": "^1.1.396",
-    "ws": "^8.18.0"
-  },
-  "supportedArchitectures": {
-    "os": [
-      "win32",
-      "darwin",
-      "linux"
+    "name": "aqua-speed",
+    "module": "./src/cli.ts",
+    "version": "1.0.4",
+    "description": "A modern network speed test CLI built with Bun and TypeScript.",
+    "type": "module",
+    "scripts": {
+        "build": "bun build ./src/cli.ts --outdir dist",
+        "start": "bun run src/cli.ts",
+        "dev": "bun --watch src/cli.ts",
+        "test": "bun test",
+        "lint": "biome check --write",
+        "format": "biome format --write"
+    },
+    "author": "Alice39s",
+    "license": "GPL-3.0-only",
+    "keywords": [
+        "speedtest",
+        "cli",
+        "cdn",
+        "network",
+        "performance",
+        "bun"
     ],
-    "cpu": [
-      "x64",
-      "arm64"
+    "devDependencies": {
+        "@biomejs/biome": "1.9.4",
+        "@types/bogon": "^1.0.2",
+        "@types/bun": "latest",
+        "@types/ping": "^0.4.4",
+        "@types/psl": "^1.1.3"
+    },
+    "peerDependencies": {
+        "typescript": "^5.0.0"
+    },
+    "dependencies": {
+        "@types/cli-progress": "^3.11.6",
+        "@types/user-agents": "^1.0.4",
+        "bogon": "^1.1.0",
+        "bufferutil": "^4.0.8",
+        "chalk": "^5.4.0",
+        "cli-progress": "^3.12.0",
+        "commander": "^12.1.0",
+        "ip-address": "^10.0.1",
+        "ora": "^8.1.1",
+        "ping": "^0.4.4",
+        "psl": "^1.15.0",
+        "table": "^6.9.0",
+        "undici": "^7.2.0",
+        "user-agents": "^1.1.396",
+        "ws": "^8.18.0"
+    },
+    "supportedArchitectures": {
+        "os": [
+            "win32",
+            "darwin",
+            "linux"
+        ],
+        "cpu": [
+            "x64",
+            "arm64"
+        ]
+    },
+    "trustedDependencies": [
+        "@biomejs/biome",
+        "bufferutil"
     ]
-  },
-  "trustedDependencies": [
-    "@biomejs/biome",
-    "bufferutil"
-  ]
 }

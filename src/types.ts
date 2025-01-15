@@ -27,7 +27,8 @@ export interface TestConfig {
     thread: number;       // -t, --thread <number>
     timeout: number;      // --timeout <seconds>
     type?: TestType;      // --type <type>, default: SingleFile, options: LibreSpeed, Cloudflare, Ookla
-    debug?: boolean;      // --debug
+    debug: boolean;      // --debug
+    privacy: boolean;     // --privacy
     speedtest?: boolean;   // --no-speedtest
     latency?: boolean;     // --no-latency  
     upload?: boolean;      // --no-upload
@@ -48,6 +49,11 @@ export interface TestDisplay {
         latency: Record<string, string>;
         speed: Record<string, string>;
         info: Record<string, string>;
+        progress?: {
+            percentage: number;
+            speed: string;
+            transferred: string;
+        };
     };
     formattedTables?: {
         latency: string;
@@ -112,6 +118,12 @@ export interface SpeedStats {
     stdDev: number;
     /** Relative error rate */
     error: number;
+    /** Total bytes transferred */
+    totalBytes: number;
+    /** Total duration of the test in milliseconds */
+    duration: number;
+    /** Number of samples taken during the test */
+    samples: number[];
 }
 
 /**
@@ -135,7 +147,20 @@ export interface TestConfigBase {
     type?: TestType;
     /** Debug mode */
     debug?: boolean;
+    onProgress?: (speed: number, bytesTransferred: number) => void;
 }
+
+/**
+ * Speedtest Worker Function
+ * @interface WorkerFn
+ */
+export type WorkerFn = (
+    url: string,
+    referrer: string,
+    onProgress: (speed: number, bytesTransferred: number) => void,
+    signal: AbortSignal,
+    testType: TestType
+) => Promise<number>;
 
 
 /**
@@ -173,8 +198,32 @@ export interface TestResult {
  */
 export interface IpGeoResponse {
     ip: string;
+    hostname?: string; // Optional field for hostname
     city: string;
     region: string;
     country: string;
     org: string;
+    timezone: string;
+    anycast?: boolean; // Optional field for anycast IPs
+}
+
+
+/**
+ * Speed window
+ * @interface SpeedWindow
+ * @property {number} timestamp - Timestamp in milliseconds
+ * @property {number} bytes - Number of bytes transferred in the window
+ */
+export interface SpeedWindow {
+    timestamp: number;
+    bytes: number;
+}
+
+/**
+ * Progess Updater
+ * @interface ProgressUpdater
+ */
+export interface ProgressUpdater {
+    update: (chunkSize: number) => void;
+    getTotalBytesTransferred: () => number;
 }

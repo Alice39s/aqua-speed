@@ -103,7 +103,12 @@ function formatStats<T extends BaseStats>(stats: T): string[] {
 function formatTestResults(result: TestResult, display: TestDisplay): void {
     // Prepare default values to ensure type safety
     const defaultLatency: LatencyStats = { min: 0, avg: 0, max: 0 };
-    const defaultSpeed: SpeedStats = { min: 0, avg: 0, max: 0, stdDev: 0, error: 0 };
+    const defaultSpeed: SpeedStats = {
+        min: 0, avg: 0, max: 0, stdDev: 0, error: 0,
+        totalBytes: 0,
+        duration: 0,
+        samples: []
+    };
 
     // Latency Table - ensure all values are present
     const latencyData = [
