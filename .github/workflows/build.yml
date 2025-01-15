@@ -43,6 +43,7 @@ jobs:
             platform: ${{ steps.detect_platform.outputs.PLATFORM }}
             binary_name: ${{ steps.setup_env.outputs.BINARY_NAME }}
             archive_name: ${{ steps.setup_env.outputs.ARCHIVE_NAME }}
+            build_path: ${{ steps.setup_env.outputs.BUILD_PATH }}
 
         steps:
             - uses: actions/checkout@v4
@@ -75,12 +76,13 @@ jobs:
               shell: bash
               run: |
                   if [[ "${{ runner.os }}" == "Windows" ]]; then
-                    mkdir -p "C:/build/out"
-                    mkdir -p "C:/build/logs"
+                    BUILD_PATH="C:/build"
                   else
-                    mkdir -p ${{ runner.temp }}/build/out
-                    mkdir -p ${{ runner.temp }}/build/logs
+                    BUILD_PATH="/tmp/build"
                   fi
+                  echo "BUILD_PATH=${BUILD_PATH}" >> $GITHUB_OUTPUT
+                  mkdir -p "${BUILD_PATH}/out"
+                  mkdir -p "${BUILD_PATH}/logs"
                   echo "BINARY_NAME=aqua-speed-${{ steps.detect_platform.outputs.PLATFORM }}_v${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_OUTPUT
                   echo "ARCHIVE_NAME=aqua-speed-${{ steps.detect_platform.outputs.PLATFORM }}_v${{ steps.get_version.outputs.VERSION }}.${{ steps.detect_platform.outputs.COMPRESS_FORMAT }}" >> $GITHUB_OUTPUT
 
@@ -128,7 +130,7 @@ jobs:
                   bun build --compile --sourcemap --minify --bytecode \
                     --target=bun-${{ matrix.platform }} \
                     ./src/cli.ts \
-                    --outfile ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}
+                    --outfile ${{ steps.setup_env.outputs.BUILD_PATH }}/out/${{ steps.setup_env.outputs.BINARY_NAME }}
 
             - name: Compile Code (Windows)
               if: runner.os == 'Windows'
@@ -161,7 +163,7 @@ jobs:
 
             - name: Generate Checksums (Linux/macOS)
               if: runner.os != 'Windows'
-              working-directory: ${{ runner.temp }}/build/out
+              working-directory: ${{ steps.setup_env.outputs.BUILD_PATH }}/out
               shell: bash
               run: |
                   sha1sum ${{ steps.setup_env.outputs.BINARY_NAME }}* > checksum.txt
@@ -188,7 +190,7 @@ jobs:
 
             - name: Compress artifacts (Linux)
               if: startsWith(steps.detect_platform.outputs.PLATFORM, 'linux')
-              working-directory: ${{ runner.temp }}/build/out
+              working-directory: ${{ steps.setup_env.outputs.BUILD_PATH }}/out
               shell: bash
               run: |
                   tar -c -I 'xz -5 -T0' -f ${{ steps.setup_env.outputs.ARCHIVE_NAME }} ${{ steps.setup_env.outputs.BINARY_NAME }}* checksum.txt
@@ -197,7 +199,7 @@ jobs:
 
             - name: Compress artifacts (macOS)
               if: contains(steps.detect_platform.outputs.PLATFORM, 'darwin')
-              working-directory: ${{ runner.temp }}/build/out
+              working-directory: ${{ steps.setup_env.outputs.BUILD_PATH }}/out
               shell: bash
               run: |
                   zip -j ${{ steps.setup_env.outputs.ARCHIVE_NAME }} ${{ steps.setup_env.outputs.BINARY_NAME }}* checksum.txt
@@ -218,24 +220,13 @@ jobs:
                     Write-Error "No files found to compress"
                   }
 
-            - name: Upload build artifacts (Linux/macOS)
-              if: runner.os != 'Windows'
+            - name: Upload build artifacts
               uses: actions/upload-artifact@v4
               with:
                   name: ${{ steps.setup_env.outputs.ARCHIVE_NAME }}
                   path: |
-                      ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.ARCHIVE_NAME }}
-                      ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
-                  retention-days: 1
-
-            - name: Upload build artifacts (Windows)
-              if: runner.os == 'Windows'
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ${{ steps.setup_env.outputs.ARCHIVE_NAME }}
-                  path: |
-                      C:/build/out/${{ steps.setup_env.outputs.ARCHIVE_NAME }}
-                      C:/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
+                      ${{ steps.setup_env.outputs.BUILD_PATH }}/out/${{ steps.setup_env.outputs.ARCHIVE_NAME }}
+                      ${{ steps.setup_env.outputs.BUILD_PATH }}/out/${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
                   retention-days: 1
 
     release:
@@ -248,18 +239,18 @@ jobs:
               uses: actions/download-artifact@v4
               with:
                   pattern: "aqua-speed-*"
-                  path: ${{ runner.temp }}/release/
+                  path: /tmp/release/
                   merge-multiple: true
 
             - name: Consolidate checksums
-              working-directory: ${{ runner.temp }}/release/
+              working-directory: /tmp/release/
               run: |
                   cat *.checksum.txt > checksums.txt
                   rm *.checksum.txt
 
             - name: List all files in the temp directory
               run: |
-                  ls -la ${{ runner.temp }}/release/
+                  ls -la /tmp/release/
 
             - name: Get Previous Version
               id: get_prev_version
@@ -295,9 +286,9 @@ jobs:
               uses: ncipollo/release-action@v1
               with:
                   artifacts: |
-                      ${{ runner.temp }}/release/*.tar.xz
-                      ${{ runner.temp }}/release/*.zip
-                      ${{ runner.temp }}/release/checksums.txt
+                      /tmp/release/*.tar.xz
+                      /tmp/release/*.zip
+                      /tmp/release/checksums.txt
                   token: ${{ github.token }}
                   tag: v${{ needs.build.outputs.version }}
                   name: Release ${{ needs.build.outputs.version }}
