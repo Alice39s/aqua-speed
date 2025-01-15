@@ -1,402 +1,369 @@
 permissions:
-  contents: write
-  packages: write
-  actions: read
+    contents: write
+    packages: write
+    actions: read
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "package.json"
-      - "src/**"
-      - ".github/**"
+    push:
+        branches:
+            - main
+        paths:
+            - "package.json"
+            - "src/**"
+            - ".github/**"
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - version: "linux-x64"
-            os: ubuntu-latest
-            platform: linux-x64-baseline
-          - version: "linux-arm64"
-            os: ubuntu-latest
-            platform: linux-arm64
-          - version: "windows-x64"
-            os: windows-latest
-            platform: windows-x64-baseline
-          # Wait https://github.com/oven-sh/bun/issues/9824
-          # - version: "windows-arm64"
-          #   os: windows-latest
-          #   platform: windows-arm64
-          - version: "darwin-x64"
-            os: ubuntu-latest
-            platform: darwin-x64
-          - version: "darwin-arm64"
-            os: ubuntu-latest
-            platform: darwin-arm64
+    build:
+        strategy:
+            matrix:
+                include:
+                    - version: "linux-x64"
+                      os: ubuntu-latest
+                      platform: linux-x64-baseline
+                    - version: "linux-arm64"
+                      os: ubuntu-latest
+                      platform: linux-arm64
+                    - version: "windows-x64"
+                      os: windows-latest
+                      platform: windows-x64-baseline
+                    # Wait https://github.com/oven-sh/bun/issues/9824
+                    # - version: "windows-arm64"
+                    #   os: windows-latest
+                    #   platform: windows-arm64
+                    - version: "darwin-x64"
+                      os: ubuntu-latest
+                      platform: darwin-x64
+                    - version: "darwin-arm64"
+                      os: ubuntu-latest
+                      platform: darwin-arm64
 
-    runs-on: ${{ matrix.os }}
-    outputs:
-      version: ${{ steps.get_version.outputs.VERSION }}
-      platform: ${{ steps.detect_platform.outputs.PLATFORM }}
-      binary_name: ${{ steps.setup_env.outputs.BINARY_NAME }}
-      archive_name: ${{ steps.setup_env.outputs.ARCHIVE_NAME }}
+        runs-on: ${{ matrix.os }}
+        outputs:
+            version: ${{ steps.get_version.outputs.VERSION }}
+            platform: ${{ steps.detect_platform.outputs.PLATFORM }}
+            binary_name: ${{ steps.setup_env.outputs.BINARY_NAME }}
+            archive_name: ${{ steps.setup_env.outputs.ARCHIVE_NAME }}
 
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2.0.1
-        with:
-          bun-version: latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: oven-sh/setup-bun@v2.0.1
+              with:
+                  bun-version: latest
 
-      - name: Detect Platform and Compress Format
-        id: detect_platform
-        shell: bash
-        run: |
-          PLATFORM="${{ matrix.version }}"
-          echo "PLATFORM=${PLATFORM}" >> $GITHUB_OUTPUT
-          echo "Current platform: ${PLATFORM}"
-          if [[ "${PLATFORM}" == *"linux"* ]]; then
-            echo "COMPRESS_FORMAT=tar.xz" >> $GITHUB_OUTPUT
-          else
-            echo "COMPRESS_FORMAT=zip" >> $GITHUB_OUTPUT
-          fi
+            - name: Detect Platform and Compress Format
+              id: detect_platform
+              shell: bash
+              run: |
+                  PLATFORM="${{ matrix.version }}"
+                  echo "PLATFORM=${PLATFORM}" >> $GITHUB_OUTPUT
+                  echo "Current platform: ${PLATFORM}"
+                  if [[ "${PLATFORM}" == *"linux"* ]]; then
+                    echo "COMPRESS_FORMAT=tar.xz" >> $GITHUB_OUTPUT
+                  else
+                    echo "COMPRESS_FORMAT=zip" >> $GITHUB_OUTPUT
+                  fi
 
-      - name: Extract version number
-        id: get_version
-        shell: bash
-        run: |
-          VERSION=$(jq -r .version < package.json)
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+            - name: Extract version number
+              id: get_version
+              shell: bash
+              run: |
+                  VERSION=$(jq -r .version < package.json)
+                  echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Setup Build Environment
-        id: setup_env
-        shell: bash
-        run: |
-          mkdir -p ${{ runner.temp }}/build/out
-          mkdir -p ${{ runner.temp }}/build/logs
-          echo "BINARY_NAME=aqua-speed-${{ steps.detect_platform.outputs.PLATFORM }}_v${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_OUTPUT
-          echo "ARCHIVE_NAME=aqua-speed-${{ steps.detect_platform.outputs.PLATFORM }}_v${{ steps.get_version.outputs.VERSION }}.${{ steps.detect_platform.outputs.COMPRESS_FORMAT }}" >> $GITHUB_OUTPUT
+            - name: Setup Build Environment
+              id: setup_env
+              shell: bash
+              run: |
+                  mkdir -p ${{ runner.temp }}/build/out
+                  mkdir -p ${{ runner.temp }}/build/logs
+                  echo "BINARY_NAME=aqua-speed-${{ steps.detect_platform.outputs.PLATFORM }}_v${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_OUTPUT
+                  echo "ARCHIVE_NAME=aqua-speed-${{ steps.detect_platform.outputs.PLATFORM }}_v${{ steps.get_version.outputs.VERSION }}.${{ steps.detect_platform.outputs.COMPRESS_FORMAT }}" >> $GITHUB_OUTPUT
 
-      - name: Update System
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y --only-upgrade tar
+            - name: Update System
+              if: runner.os == 'Linux'
+              run: |
+                  sudo apt-get update -y
+                  sudo apt-get install -y --only-upgrade tar
 
-      - name: Install Dependencies (Linux)
-        if: runner.os == 'Linux'
-        uses: nick-fields/retry@v2
-        with:
-          timeout_seconds: 30
-          max_attempts: 3
-          retry_wait_seconds: 5
-          command: bun install || { echo "Failed to install dependencies"; exit 1; }
-          shell: bash
+            - name: Install Dependencies (Linux)
+              if: runner.os == 'Linux'
+              uses: nick-fields/retry@v2
+              with:
+                  timeout_seconds: 30
+                  max_attempts: 3
+                  retry_wait_seconds: 5
+                  command: bun install || { echo "Failed to install dependencies"; exit 1; }
+                  shell: bash
 
-      - name: Install Dependencies (Windows)
-        if: runner.os == 'Windows'
-        uses: nick-fields/retry@v2
-        with:
-          timeout_seconds: 30
-          max_attempts: 3
-          retry_wait_seconds: 5
-          command: bun install
-          shell: powershell
+            - name: Install Dependencies (Windows)
+              if: runner.os == 'Windows'
+              uses: nick-fields/retry@v2
+              with:
+                  timeout_seconds: 30
+                  max_attempts: 3
+                  retry_wait_seconds: 5
+                  command: bun install
+                  shell: powershell
 
-      - name: Setup Windows Cache Directory
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          $cacheDir = "$env:USERPROFILE\.bun\install\cache"
-          New-Item -Path $cacheDir -ItemType Directory -Force
-          $acl = Get-Acl $cacheDir
-          $rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
-          $acl.SetAccessRule($rule)
-          Set-Acl $cacheDir $acl
+            - name: Setup Windows Cache Directory
+              if: runner.os == 'Windows'
+              shell: powershell
+              run: |
+                  $cacheDir = "$env:USERPROFILE\.bun\install\cache"
+                  New-Item -Path $cacheDir -ItemType Directory -Force
+                  $acl = Get-Acl $cacheDir
+                  $rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+                  $acl.SetAccessRule($rule)
+                  Set-Acl $cacheDir $acl
 
-      - name: Compile Code
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          bun build --compile --sourcemap --minify --bytecode \
-            --target=bun-${{ matrix.platform }} \
-            ./src/cli.ts \
-            --outfile ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}
+            - name: Compile Code
+              if: runner.os != 'Windows'
+              shell: bash
+              run: |
+                  bun build --compile --sourcemap --minify --bytecode \
+                    --target=bun-${{ matrix.platform }} \
+                    ./src/cli.ts \
+                    --outfile ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}
 
-      # https://github.com/oven-sh/bun/discussions/12247
-      # FIXME: Workaround!!!
-      - name: Compile Code (Windows)
-        if: runner.os == 'Windows'
-        shell: powershell
-        continue-on-error: true
-        run: |
-          # Define variables
-          $buildDir = "${{ runner.temp }}/build/out"
-          $outFileName = "${{ steps.setup_env.outputs.BINARY_NAME }}.exe"
-          $outFilePath = "$buildDir/$outFileName"
+            # https://github.com/oven-sh/bun/discussions/12247
+            # FIXME: Workaround!!!
+            - name: Compile Code (Windows)
+              if: runner.os == 'Windows'
+              shell: powershell
+              continue-on-error: true
+              run: |
+                  # Define variables
+                  $buildDir = "C:\build\out"
+                  $outFileName = "${{ steps.setup_env.outputs.BINARY_NAME }}.exe"
+                  $outFilePath = Join-Path $buildDir $outFileName
 
-          # Ensure build directory exists
-          try {
-            if (-not (Test-Path $buildDir)) {
-              New-Item -Path $buildDir -ItemType Directory -Force | Out-Null
-              Write-Output "Created build directory: $buildDir"
-            }
-          } catch {
-            Write-Error "Failed to create build directory: $_"
-            exit 1
-          }
+                  # Ensure build directory exists
+                  try {
+                      if (-not (Test-Path $buildDir)) {
+                          New-Item -Path $buildDir -ItemType Directory -Force | Out-Null
+                          Write-Output "Created build directory: $buildDir"
+                      }
+                  } catch {
+                      Write-Error "Failed to create build directory: $_"
+                      exit 1
+                  }
 
-          # Run bun build command
-          try {
-            Write-Output "Starting bun build..."
-            bun build --compile --sourcemap --minify --bytecode `
-              --target=bun-${{ matrix.platform }} `
-              ./src/cli.ts --outfile out
+                  # Run bun build command with direct output path
+                  try {
+                      Write-Output "Starting bun build..."
+                      bun build --compile --sourcemap --minify --bytecode `
+                          --target=bun-${{ matrix.platform }} `
+                          ./src/cli.ts --outfile $outFilePath
 
-            if ($LASTEXITCODE -ne 0) {
-              throw "Bun build failed with exit code $LASTEXITCODE"
-            }
-          } catch {
-            Write-Error "Build command failed: $_"
-            exit 1
-          }
+                      if ($LASTEXITCODE -ne 0) {
+                          throw "Bun build failed with exit code $LASTEXITCODE"
+                      }
+                  } catch {
+                      Write-Error "Build command failed: $_"
+                      exit 1
+                  }
 
-          # Wait for file system to settle
-          Write-Output "Waiting for build process to complete..."
-          Start-Sleep -Seconds 2
+                  # Verify final output
+                  if (-not (Test-Path $outFilePath)) {
+                      Write-Error "Build process completed but output file is missing"
+                      exit 1
+                  }
 
-          # Find and move the build file
-          try {
-            $bunBuild = Get-ChildItem -Path "." -Filter "*.bun-build" -ErrorAction Stop | Select-Object -First 1
-            
-            if ($bunBuild) {
-              Write-Output "Found build file: $($bunBuild.FullName)"
-              
-              # Check if destination file exists and try to remove it
-              if (Test-Path $outFilePath) {
-                Remove-Item $outFilePath -Force -ErrorAction Stop
-                Write-Output "Removed existing output file"
-              }
-              
-              # Move the file
-              Move-Item $bunBuild.FullName $outFilePath -Force -ErrorAction Stop
-              
-              if (Test-Path $outFilePath) {
-                Write-Output "Successfully moved build file to: $outFilePath"
-              } else {
-                throw "File move appeared to succeed but target file does not exist"
-              }
-            } else {
-              throw "No .bun-build file found in the current directory"
-            }
-          } catch {
-            Write-Error "Failed to process build file: $_"
-            exit 1
-          }
+                  Write-Output "Build process completed successfully"
 
-          # Verify final output
-          if (-not (Test-Path $outFilePath)) {
-            Write-Error "Build process completed but output file is missing"
-            exit 1
-          }
+            - name: Generate Checksums (Linux/macOS)
+              if: runner.os != 'Windows'
+              working-directory: ${{ runner.temp }}/build/out
+              shell: bash
+              run: |
+                  sha1sum ${{ steps.setup_env.outputs.BINARY_NAME }}* > checksum.txt
 
-          Write-Output "Build process completed successfully"
+            - name: Generate Checksums (Windows)
+              if: runner.os == 'Windows'
+              shell: powershell
+              run: |
+                  try {
+                    # Define variables
+                    $buildDir = "${{ runner.temp }}/build/out"
+                    $checksumFile = "checksum.txt"
+                    $binaryPattern = "${{ steps.setup_env.outputs.BINARY_NAME }}*"
+                    
+                    # Create build directory if it doesn't exist
+                    if (!(Test-Path $buildDir)) {
+                      Write-Output "Creating build directory: $buildDir"
+                      New-Item -ItemType Directory -Path $buildDir -Force -ErrorAction Stop | Out-Null
+                    }
 
-      - name: Generate Checksums (Linux/macOS)
-        if: runner.os != 'Windows'
-        working-directory: ${{ runner.temp }}/build/out
-        shell: bash
-        run: |
-          sha1sum ${{ steps.setup_env.outputs.BINARY_NAME }}* > checksum.txt
+                    # Change to build directory
+                    Write-Output "Changing to directory: $buildDir"
+                    Set-Location $buildDir -ErrorAction Stop
 
-      - name: Generate Checksums (Windows)
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          try {
-            # Define variables
-            $buildDir = "${{ runner.temp }}/build/out"
-            $checksumFile = "checksum.txt"
-            $binaryPattern = "${{ steps.setup_env.outputs.BINARY_NAME }}*"
-            
-            # Create build directory if it doesn't exist
-            if (!(Test-Path $buildDir)) {
-              Write-Output "Creating build directory: $buildDir"
-              New-Item -ItemType Directory -Path $buildDir -Force -ErrorAction Stop | Out-Null
-            }
+                    # Get files matching pattern
+                    Write-Output "Searching for files matching pattern: $binaryPattern"
+                    $files = Get-ChildItem -Filter $binaryPattern -ErrorAction Stop
+                    
+                    if ($files) {
+                      Write-Output "Found $($files.Count) file(s) to process"
+                      
+                      # Create array to store checksum entries
+                      $checksums = @()
+                      
+                      # Generate checksums
+                      foreach ($file in $files) {
+                        try {
+                          Write-Output "Calculating SHA1 hash for: $($file.Name)"
+                          $hash = Get-FileHash -Algorithm SHA1 -Path $file.FullName -ErrorAction Stop
+                          $checksumEntry = "$($hash.Hash.ToLower())  $($file.Name)"
+                          $checksums += $checksumEntry
+                          Write-Output "Generated checksum: $checksumEntry"
+                        }
+                        catch {
+                          Write-Error "Failed to generate hash for $($file.Name): $_"
+                          exit 1
+                        }
+                      }
+                      
+                      # Write checksums to file
+                      try {
+                        Write-Output "Writing checksums to $checksumFile"
+                        $checksums | Set-Content -Path $checksumFile -Encoding utf8 -ErrorAction Stop
+                        
+                        # Verify the checksum file was created
+                        if (Test-Path $checksumFile) {
+                          Write-Output "Successfully created checksum file: $checksumFile"
+                          Write-Output "Checksum file contents:"
+                          Get-Content $checksumFile | ForEach-Object { Write-Output $_ }
+                        } else {
+                          throw "Checksum file was not created"
+                        }
+                      }
+                      catch {
+                        Write-Error "Failed to write checksum file: $_"
+                        exit 1
+                      }
+                    } else {
+                      throw "No files found matching pattern: $binaryPattern"
+                    }
+                  }
+                  catch {
+                    Write-Error "Checksum generation failed: $_"
+                    exit 1
+                  }
 
-            # Change to build directory
-            Write-Output "Changing to directory: $buildDir"
-            Set-Location $buildDir -ErrorAction Stop
+            - name: Compress artifacts (Linux)
+              if: startsWith(steps.detect_platform.outputs.PLATFORM, 'linux')
+              working-directory: ${{ runner.temp }}/build/out
+              shell: bash
+              run: |
+                  tar -c -I 'xz -5 -T0' -f ${{ steps.setup_env.outputs.ARCHIVE_NAME }} ${{ steps.setup_env.outputs.BINARY_NAME }}* checksum.txt
+                  rm -f ${{ steps.setup_env.outputs.BINARY_NAME }}
+                  cp checksum.txt ${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
 
-            # Get files matching pattern
-            Write-Output "Searching for files matching pattern: $binaryPattern"
-            $files = Get-ChildItem -Filter $binaryPattern -ErrorAction Stop
-            
-            if ($files) {
-              Write-Output "Found $($files.Count) file(s) to process"
-              
-              # Create array to store checksum entries
-              $checksums = @()
-              
-              # Generate checksums
-              foreach ($file in $files) {
-                try {
-                  Write-Output "Calculating SHA1 hash for: $($file.Name)"
-                  $hash = Get-FileHash -Algorithm SHA1 -Path $file.FullName -ErrorAction Stop
-                  $checksumEntry = "$($hash.Hash.ToLower())  $($file.Name)"
-                  $checksums += $checksumEntry
-                  Write-Output "Generated checksum: $checksumEntry"
-                }
-                catch {
-                  Write-Error "Failed to generate hash for $($file.Name): $_"
-                  exit 1
-                }
-              }
-              
-              # Write checksums to file
-              try {
-                Write-Output "Writing checksums to $checksumFile"
-                $checksums | Set-Content -Path $checksumFile -Encoding utf8 -ErrorAction Stop
-                
-                # Verify the checksum file was created
-                if (Test-Path $checksumFile) {
-                  Write-Output "Successfully created checksum file: $checksumFile"
-                  Write-Output "Checksum file contents:"
-                  Get-Content $checksumFile | ForEach-Object { Write-Output $_ }
-                } else {
-                  throw "Checksum file was not created"
-                }
-              }
-              catch {
-                Write-Error "Failed to write checksum file: $_"
-                exit 1
-              }
-            } else {
-              throw "No files found matching pattern: $binaryPattern"
-            }
-          }
-          catch {
-            Write-Error "Checksum generation failed: $_"
-            exit 1
-          }
+            - name: Compress artifacts (macOS)
+              if: contains(steps.detect_platform.outputs.PLATFORM, 'darwin')
+              working-directory: ${{ runner.temp }}/build/out
+              shell: bash
+              run: |
+                  zip -j ${{ steps.setup_env.outputs.ARCHIVE_NAME }} ${{ steps.setup_env.outputs.BINARY_NAME }}* checksum.txt
+                  rm -f ${{ steps.setup_env.outputs.BINARY_NAME }}
+                  cp checksum.txt ${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
 
-      - name: Compress artifacts (Linux)
-        if: startsWith(steps.detect_platform.outputs.PLATFORM, 'linux')
-        working-directory: ${{ runner.temp }}/build/out
-        shell: bash
-        run: |
-          tar -c -I 'xz -5 -T0' -f ${{ steps.setup_env.outputs.ARCHIVE_NAME }} ${{ steps.setup_env.outputs.BINARY_NAME }}* checksum.txt
-          rm -f ${{ steps.setup_env.outputs.BINARY_NAME }}
-          cp checksum.txt ${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
+            - name: Compress artifacts (Windows)
+              if: runner.os == 'Windows'
+              shell: powershell
+              run: |
+                  $buildDir = "${{ runner.temp }}/build/out"
+                  if (!(Test-Path $buildDir)) {
+                    New-Item -ItemType Directory -Path $buildDir -Force
+                  }
+                  Set-Location $buildDir
 
-      - name: Compress artifacts (macOS)
-        if: contains(steps.detect_platform.outputs.PLATFORM, 'darwin')
-        working-directory: ${{ runner.temp }}/build/out
-        shell: bash
-        run: |
-          zip -j ${{ steps.setup_env.outputs.ARCHIVE_NAME }} ${{ steps.setup_env.outputs.BINARY_NAME }}* checksum.txt
-          rm -f ${{ steps.setup_env.outputs.BINARY_NAME }}
-          cp checksum.txt ${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
+                  $files = Get-ChildItem -Path "${{ steps.setup_env.outputs.BINARY_NAME }}*.exe", "checksum.txt"
+                  if ($files) {
+                    Compress-Archive -Path $files -DestinationPath "${{ steps.setup_env.outputs.ARCHIVE_NAME }}" -Force
+                    Get-ChildItem -Filter "${{ steps.setup_env.outputs.BINARY_NAME }}*.exe" | Remove-Item
+                    Copy-Item -Path "checksum.txt" -Destination "${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt" -Force
+                  } else {
+                    Write-Error "No files found to compress"
+                  }
 
-      - name: Compress artifacts (Windows)
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          $buildDir = "${{ runner.temp }}/build/out"
-          if (!(Test-Path $buildDir)) {
-            New-Item -ItemType Directory -Path $buildDir -Force
-          }
-          Set-Location $buildDir
+            - name: Upload build artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ steps.setup_env.outputs.ARCHIVE_NAME }}
+                  path: |
+                      ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.ARCHIVE_NAME }}
+                      ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
+                  retention-days: 1
 
-          $files = Get-ChildItem -Path "${{ steps.setup_env.outputs.BINARY_NAME }}*.exe", "checksum.txt"
-          if ($files) {
-            Compress-Archive -Path $files -DestinationPath "${{ steps.setup_env.outputs.ARCHIVE_NAME }}" -Force
-            Get-ChildItem -Filter "${{ steps.setup_env.outputs.BINARY_NAME }}*.exe" | Remove-Item
-            Copy-Item -Path "checksum.txt" -Destination "${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt" -Force
-          } else {
-            Write-Error "No files found to compress"
-          }
+    release:
+        needs: build
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.setup_env.outputs.ARCHIVE_NAME }}
-          path: |
-            ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.ARCHIVE_NAME }}
-            ${{ runner.temp }}/build/out/${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
-          retention-days: 1
+            - name: Download build artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  pattern: "aqua-speed-*"
+                  path: ${{ runner.temp }}/release/
+                  merge-multiple: true
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+            - name: Consolidate checksums
+              working-directory: ${{ runner.temp }}/release/
+              run: |
+                  cat *.checksum.txt > checksums.txt
+                  rm *.checksum.txt
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: "aqua-speed-*"
-          path: ${{ runner.temp }}/release/
-          merge-multiple: true
+            - name: List all files in the temp directory
+              run: |
+                  ls -la ${{ runner.temp }}/release/
 
-      - name: Consolidate checksums
-        working-directory: ${{ runner.temp }}/release/
-        run: |
-          cat *.checksum.txt > checksums.txt
-          rm *.checksum.txt
+            - name: Get Previous Version
+              id: get_prev_version
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      const releases = await github.rest.repos.listReleases({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo
+                      });
 
-      - name: List all files in the temp directory
-        run: |
-          ls -la ${{ runner.temp }}/release/
+                      const currentVersion = '${{ needs.build.outputs.version }}';
+                      console.log(`Releases: ${context.repo.owner}/${context.repo.repo}`, releases.data.map(r => r.tag_name));
+                      console.log(`Creating version: v${currentVersion}`);
 
-      - name: Get Previous Version
-        id: get_prev_version
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const releases = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo
-            });
+                      if (releases.data.length === 0) {
+                        core.setOutput('version', 'first-commit');
+                        core.setOutput('compare_url', `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/commits`);
+                        core.setOutput('changes_text', 'all commits');
+                      } else {
+                        const previousRelease = releases.data[0];
+                        const previousTag = previousRelease.tag_name;
+                        const previousVersion = previousTag.replace('v', '');
+                        console.log(`Previous version: ${previousTag}`);
+                        core.setOutput('version', previousVersion);
+                        core.setOutput('compare_url', 
+                          `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/compare/v${previousVersion}...v${currentVersion}`
+                        );
+                        core.setOutput('changes_text', `changes since v${previousVersion}`);
+                      }
 
-            const currentVersion = '${{ needs.build.outputs.version }}';
-            console.log(`Releases: ${context.repo.owner}/${context.repo.repo}`, releases.data.map(r => r.tag_name));
-            console.log(`Creating version: v${currentVersion}`);
+            - name: Create GitHub Release
+              uses: ncipollo/release-action@v1
+              with:
+                  artifacts: |
+                      ${{ runner.temp }}/release/*.tar.xz
+                      ${{ runner.temp }}/release/*.zip
+                      ${{ runner.temp }}/release/checksums.txt
+                  token: ${{ github.token }}
+                  tag: v${{ needs.build.outputs.version }}
+                  name: Release ${{ needs.build.outputs.version }}
+                  body: |
+                      Release of version ${{ needs.build.outputs.version }}
 
-            if (releases.data.length === 0) {
-              core.setOutput('version', 'first-commit');
-              core.setOutput('compare_url', `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/commits`);
-              core.setOutput('changes_text', 'all commits');
-            } else {
-              const previousRelease = releases.data[0];
-              const previousTag = previousRelease.tag_name;
-              const previousVersion = previousTag.replace('v', '');
-              console.log(`Previous version: ${previousTag}`);
-              core.setOutput('version', previousVersion);
-              core.setOutput('compare_url', 
-                `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/compare/v${previousVersion}...v${currentVersion}`
-              );
-              core.setOutput('changes_text', `changes since v${previousVersion}`);
-            }
-
-      - name: Create GitHub Release
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: |
-            ${{ runner.temp }}/release/*.tar.xz
-            ${{ runner.temp }}/release/*.zip
-            ${{ runner.temp }}/release/checksums.txt
-          token: ${{ github.token }}
-          tag: v${{ needs.build.outputs.version }}
-          name: Release ${{ needs.build.outputs.version }}
-          body: |
-            Release of version ${{ needs.build.outputs.version }}
-
-            [View ${{ steps.get_prev_version.outputs.changes_text }}](${{ steps.get_prev_version.outputs.compare_url }})
-          draft: false
-          prerelease: false
-          allowUpdates: true
-          generateReleaseNotes: true
+                      [View ${{ steps.get_prev_version.outputs.changes_text }}](${{ steps.get_prev_version.outputs.compare_url }})
+                  draft: false
+                  prerelease: false
+                  allowUpdates: true
+                  generateReleaseNotes: true
