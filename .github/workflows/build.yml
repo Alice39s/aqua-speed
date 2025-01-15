@@ -14,55 +14,15 @@ on:
 
 jobs:
     build:
-        strategy:
-            matrix:
-                include:
-                    - version: "linux-x64"
-                      os: ubuntu-latest
-                      platform: linux-x64-baseline
-                    - version: "linux-arm64"
-                      os: ubuntu-latest
-                      platform: linux-arm64
-                    - version: "windows-x64"
-                      os: windows-latest
-                      platform: windows-x64-baseline
-                    # Wait https://github.com/oven-sh/bun/issues/9824
-                    # - version: "windows-arm64"
-                    #   os: windows-latest
-                    #   platform: windows-arm64
-                    - version: "darwin-x64"
-                      os: ubuntu-latest
-                      platform: darwin-x64
-                    - version: "darwin-arm64"
-                      os: ubuntu-latest
-                      platform: darwin-arm64
-
-        runs-on: ${{ matrix.os }}
+        runs-on: ubuntu-latest
         outputs:
             version: ${{ steps.get_version.outputs.VERSION }}
-            platform: ${{ steps.detect_platform.outputs.PLATFORM }}
-            binary_name: ${{ steps.setup_env.outputs.BINARY_NAME }}
-            archive_name: ${{ steps.setup_env.outputs.ARCHIVE_NAME }}
-            build_path: ${{ steps.setup_env.outputs.BUILD_PATH }}
 
         steps:
             - uses: actions/checkout@v4
             - uses: oven-sh/setup-bun@v2.0.1
               with:
                   bun-version: latest
-
-            - name: Detect Platform and Compress Format
-              id: detect_platform
-              shell: bash
-              run: |
-                  PLATFORM="${{ matrix.version }}"
-                  echo "PLATFORM=${PLATFORM}" >> $GITHUB_OUTPUT
-                  echo "Current platform: ${PLATFORM}"
-                  if [[ "${PLATFORM}" == *"linux"* ]]; then
-                    echo "COMPRESS_FORMAT=tar.xz" >> $GITHUB_OUTPUT
-                  else
-                    echo "COMPRESS_FORMAT=zip" >> $GITHUB_OUTPUT
-                  fi
 
             - name: Extract version number
               id: get_version
@@ -71,162 +31,21 @@ jobs:
                   VERSION=$(jq -r .version < package.json)
                   echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
-            - name: Setup Build Environment
-              id: setup_env
-              shell: bash
-              run: |
-                  if [[ "${{ runner.os }}" == "Windows" ]]; then
-                    BUILD_PATH="C:/build"
-                  else
-                    BUILD_PATH="/tmp/build"
-                  fi
-                  echo "BUILD_PATH=${BUILD_PATH}" >> $GITHUB_OUTPUT
-                  mkdir -p "${BUILD_PATH}/out"
-                  mkdir -p "${BUILD_PATH}/logs"
-                  echo "BINARY_NAME=aqua-speed-${{ steps.detect_platform.outputs.PLATFORM }}_v${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_OUTPUT
-                  echo "ARCHIVE_NAME=aqua-speed-${{ steps.detect_platform.outputs.PLATFORM }}_v${{ steps.get_version.outputs.VERSION }}.${{ steps.detect_platform.outputs.COMPRESS_FORMAT }}" >> $GITHUB_OUTPUT
-
             - name: Update System
-              if: runner.os == 'Linux'
               run: |
                   sudo apt-get update -y
                   sudo apt-get install -y --only-upgrade tar
 
-            - name: Install Dependencies (Linux)
-              if: runner.os == 'Linux'
-              uses: nick-fields/retry@v2
-              with:
-                  timeout_seconds: 30
-                  max_attempts: 3
-                  retry_wait_seconds: 5
-                  command: bun install || { echo "Failed to install dependencies"; exit 1; }
-                  shell: bash
-
-            - name: Install Dependencies (Windows)
-              if: runner.os == 'Windows'
-              uses: nick-fields/retry@v2
-              with:
-                  timeout_seconds: 30
-                  max_attempts: 3
-                  retry_wait_seconds: 5
-                  command: bun install
-                  shell: powershell
-
-            - name: Setup Windows Cache Directory
-              if: runner.os == 'Windows'
-              shell: powershell
+            - name: Run build script
               run: |
-                  $cacheDir = "$env:USERPROFILE\.bun\install\cache"
-                  New-Item -Path $cacheDir -ItemType Directory -Force
-                  $acl = Get-Acl $cacheDir
-                  $rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
-                  $acl.SetAccessRule($rule)
-                  Set-Acl $cacheDir $acl
-
-            - name: Compile Code
-              if: runner.os != 'Windows'
-              shell: bash
-              run: |
-                  bun build --compile --sourcemap --minify --bytecode \
-                    --target=bun-${{ matrix.platform }} \
-                    ./src/cli.ts \
-                    --outfile ${{ steps.setup_env.outputs.BUILD_PATH }}/out/${{ steps.setup_env.outputs.BINARY_NAME }}
-
-            - name: Compile Code (Windows)
-              if: runner.os == 'Windows'
-              shell: powershell
-              continue-on-error: true
-              run: |
-                  $outFileName = "${{ steps.setup_env.outputs.BINARY_NAME }}.exe"
-                  $outFilePath = "C:/build/out/$outFileName"
-
-                  try {
-                      Write-Output "Starting bun build..."
-                      bun build --compile --sourcemap --minify --bytecode `
-                          --target=bun-${{ matrix.platform }} `
-                          ./src/cli.ts --outfile $outFilePath
-
-                      if ($LASTEXITCODE -ne 0) {
-                          throw "Bun build failed with exit code $LASTEXITCODE"
-                      }
-                  } catch {
-                      Write-Error "Build command failed: $_"
-                      exit 1
-                  }
-
-                  if (-not (Test-Path $outFilePath)) {
-                      Write-Error "Build process completed but output file is missing"
-                      exit 1
-                  }
-
-                  Write-Output "Build process completed successfully"
-
-            - name: Generate Checksums (Linux/macOS)
-              if: runner.os != 'Windows'
-              working-directory: ${{ steps.setup_env.outputs.BUILD_PATH }}/out
-              shell: bash
-              run: |
-                  sha1sum ${{ steps.setup_env.outputs.BINARY_NAME }}* > checksum.txt
-
-            - name: Generate Checksums (Windows)
-              if: runner.os == 'Windows'
-              shell: powershell
-              run: |
-                  Set-Location "C:/build/out"
-                  $binaryPattern = "${{ steps.setup_env.outputs.BINARY_NAME }}*"
-                  $files = Get-ChildItem -Filter $binaryPattern
-
-                  if ($files) {
-                      $checksums = @()
-                      foreach ($file in $files) {
-                          $hash = Get-FileHash -Algorithm SHA1 -Path $file.FullName
-                          $checksums += "$($hash.Hash.ToLower())  $($file.Name)"
-                      }
-                      $checksums | Set-Content -Path "checksum.txt" -Encoding utf8
-                  } else {
-                      Write-Error "No files found matching pattern: $binaryPattern"
-                      exit 1
-                  }
-
-            - name: Compress artifacts (Linux)
-              if: startsWith(steps.detect_platform.outputs.PLATFORM, 'linux')
-              working-directory: ${{ steps.setup_env.outputs.BUILD_PATH }}/out
-              shell: bash
-              run: |
-                  tar -c -I 'xz -5 -T0' -f ${{ steps.setup_env.outputs.ARCHIVE_NAME }} ${{ steps.setup_env.outputs.BINARY_NAME }}* checksum.txt
-                  rm -f ${{ steps.setup_env.outputs.BINARY_NAME }}
-                  cp checksum.txt ${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
-
-            - name: Compress artifacts (macOS)
-              if: contains(steps.detect_platform.outputs.PLATFORM, 'darwin')
-              working-directory: ${{ steps.setup_env.outputs.BUILD_PATH }}/out
-              shell: bash
-              run: |
-                  zip -j ${{ steps.setup_env.outputs.ARCHIVE_NAME }} ${{ steps.setup_env.outputs.BINARY_NAME }}* checksum.txt
-                  rm -f ${{ steps.setup_env.outputs.BINARY_NAME }}
-                  cp checksum.txt ${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
-
-            - name: Compress artifacts (Windows)
-              if: runner.os == 'Windows'
-              shell: powershell
-              run: |
-                  Set-Location "C:/build/out"
-                  $files = Get-ChildItem -Path "${{ steps.setup_env.outputs.BINARY_NAME }}*.exe", "checksum.txt"
-                  if ($files) {
-                    Compress-Archive -Path $files -DestinationPath "${{ steps.setup_env.outputs.ARCHIVE_NAME }}" -Force
-                    Get-ChildItem -Filter "${{ steps.setup_env.outputs.BINARY_NAME }}*.exe" | Remove-Item
-                    Copy-Item -Path "checksum.txt" -Destination "${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt" -Force
-                  } else {
-                    Write-Error "No files found to compress"
-                  }
+                  chmod +x ./build.sh
+                  ./build.sh
 
             - name: Upload build artifacts
               uses: actions/upload-artifact@v4
               with:
-                  name: ${{ steps.setup_env.outputs.ARCHIVE_NAME }}
-                  path: |
-                      ${{ steps.setup_env.outputs.BUILD_PATH }}/out/${{ steps.setup_env.outputs.ARCHIVE_NAME }}
-                      ${{ steps.setup_env.outputs.BUILD_PATH }}/out/${{ steps.setup_env.outputs.BINARY_NAME }}.checksum.txt
+                  name: build-artifacts
+                  path: dist/out/*
                   retention-days: 1
 
     release:
@@ -238,19 +57,8 @@ jobs:
             - name: Download build artifacts
               uses: actions/download-artifact@v4
               with:
-                  pattern: "aqua-speed-*"
+                  name: build-artifacts
                   path: /tmp/release/
-                  merge-multiple: true
-
-            - name: Consolidate checksums
-              working-directory: /tmp/release/
-              run: |
-                  cat *.checksum.txt > checksums.txt
-                  rm *.checksum.txt
-
-            - name: List all files in the temp directory
-              run: |
-                  ls -la /tmp/release/
 
             - name: Get Previous Version
               id: get_prev_version
