@@ -42,6 +42,18 @@
 - 🎨 美观的 CLI 界面，支持实时进度显示
 - 🛡️ 完备的 TypeScript 类型支持、使用 Biome 约束代码风格
 
+## :star: 支持的测速服务端
+
+| 测速服务端        | 上传测速               | 下载测速               | 延迟测试               | 备注                 |
+| ----------------- | ---------------------- | ---------------------- | ---------------------- | -------------------- |
+| Speedtest.net     | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | 开发中、高优先级     |
+| LibreSpeed        | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | 主要用于高校测速站   |
+| Cloudflare Speed  | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | speed.cloudflare.com |
+| 单文件测速        | :x:                    | :white_check_mark:     | :white_check_mark:     | 不支持上传测速       |
+| Looking Glass     | :large_orange_diamond: | :white_check_mark:     | :white_check_mark:     | 开发中               |
+| 全球网测 (信通院) | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | 开发中               |
+| Speedtest.cn      | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | 开发中               |
+
 # :star2: 演示
 
 [![asciicast](https://asciinema.org/a/nlNFF30p1fHw5iwm8eXEmRqq0.svg)](https://asciinema.org/a/nlNFF30p1fHw5iwm8eXEmRqq0)

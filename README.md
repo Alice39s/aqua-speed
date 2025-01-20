@@ -39,6 +39,18 @@ A modern network speed test CLI built with Bun and TypeScript.
 - 🎨 Beautiful CLI interface with real-time progress
 - 🛡️ Full TypeScript type support, Biome constrained code style.
 
+## :star: Supported Servers
+
+| Server Type      | Upload                 | Download               | Latency                | Remarks                 |
+| ---------------- | ---------------------- | ---------------------- | ---------------------- | ----------------------- |
+| Speedtest.net    | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | Development             |
+| LibreSpeed       | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     |                         |
+| Cloudflare Speed | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | speed.cloudflare.com    |
+| Single File      | :x:                    | :white_check_mark:     | :white_check_mark:     | Not support upload test |
+| Looking Glass    | :large_orange_diamond: | :white_check_mark:     | :white_check_mark:     | Development             |
+| Taierspeed       | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | Development             |
+| Speedtest.cn     | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | Development             |
+
 # :star2: Demo
 
 [![asciicast](https://asciinema.org/a/nlNFF30p1fHw5iwm8eXEmRqq0.svg)](https://asciinema.org/a/nlNFF30p1fHw5iwm8eXEmRqq0)
