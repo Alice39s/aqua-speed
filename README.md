@@ -12,7 +12,7 @@ A modern network speed test CLI built with Bun and TypeScript.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-%23007ACC.svg?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Bun](https://img.shields.io/badge/Bun-%2314151a.svg?style=flat&logo=bun&logoColor=#fbf0df)](https://bun.sh)
-[![Biome](https://img.shields.io/badge/Biome-%23171c2b.svg?style=flat&logo=biome&logoColor=#60a5fa)](https://biomejs.dev/)
+[![Oxc](https://img.shields.io/badge/Oxc-lint%20%26%20format-yellow)](https://oxc.rs)
 [![License](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](LICENSE)
 
 </div>
@@ -28,7 +28,7 @@ A modern network speed test CLI built with Bun and TypeScript.
 - 🚀 High-performance speed testing powered by Bun runtime
 - ✨ Multiple test servers support:
   - Cloudflare (download & upload)
-  - LibreSpeed (download & upload) 
+  - LibreSpeed (download & upload)
   - Ookla (TODO)
   - Custom file URL (download only) [^1]
 - 🧵 Concurrent testing with configurable threads
@@ -37,7 +37,7 @@ A modern network speed test CLI built with Bun and TypeScript.
   - Download/Upload speeds
   - Jitter analysis
 - 🎨 Beautiful CLI interface with real-time progress
-- 🛡️ Full TypeScript type support, Biome constrained code style.
+- 🛡️ Full TypeScript type support, Oxc constrained code style.
 
 ## :star: Supported Servers
 
@@ -62,14 +62,16 @@ A modern network speed test CLI built with Bun and TypeScript.
 Download the latest binary compressed package from [Releases](https://github.com/Alice39s/aqua-speed/releases)
 
 #### Linux & macOS
+
 ```bash
 chmod +x aqua-speed
 ./aqua-speed
 ```
 
 #### Windows
+
 ```bash
-./aqua-speed.exe 
+./aqua-speed.exe
 ```
 
 ### :whale: Run from Docker
@@ -118,6 +120,7 @@ bun run start
 ## Basic Usage
 
 ### Quick Start
+
 ```bash
 # Run with defaults (Cloudflare server, 4 threads)
 aqua-speed
@@ -136,8 +139,8 @@ aqua-speed [options]
 
 Options:
   -s, --server <url>     Speed test server URL
-  --sn <name>            Speed test server name 
-  -t, --thread <number>  Number of concurrent connections  
+  --sn <name>            Speed test server name
+  -t, --thread <number>  Number of concurrent connections
   --timeout <seconds>    Test timeout in seconds
   --debug               Debug mode
   --type <type>         Test type (SingleFile|LibreSpeed|Cloudflare)
@@ -173,12 +176,14 @@ chmod +x aqua-speed
 ```
 
 2. Low speeds
+
 - Reduce threads: `-t 2`
 - Test with different servers
 
 ### Debug Mode
 
 Enable debug logging for detailed information:
+
 ```bash
 ./aqua-speed --debug
 ```
@@ -201,14 +206,17 @@ bun run build:binary
 
 ### :scroll: Code Style
 
-This project uses Biome for code formatting and linting (using `biome format` and `biome check`):
+Oxfmt formats the code. Oxlint and its `tsgolint` engine run lint rules and TypeScript 7 diagnostics in one pass:
 
 ```bash
 # Format code
 bun run format
 
-# Lint code
+# Lint and type-check code
 bun run lint
+
+# Run all checks
+bun run check
 ```
 
 ## :book: Changelog
@@ -228,8 +236,9 @@ See [Roadmap.md](Roadmap.md) for more details.
 5. Submit pull request
 
 Please ensure:
+
 - Tests pass
-- Code follows Biome standards
+- Code follows Oxc standards
 - Commit messages are clear
 - Documentation is updated
 
