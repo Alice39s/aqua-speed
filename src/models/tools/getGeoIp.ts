@@ -439,6 +439,7 @@ class OoklaSource extends BaseIpSource {
  */
 function createIpSource(type: TestConfig["type"]): IpSource {
 	switch (type) {
+		case "Apple":
 		case "SingleFile":
 			return new SingleFileSource();
 		case "LibreSpeed":
@@ -465,7 +466,7 @@ export async function getIpGeolocation(
 		const source = createIpSource(config.type);
 		const origin = new URL(config.server).origin;
 
-		if (config.type === "SingleFile") {
+		if (config.type === "SingleFile" || config.type === "Apple") {
 			return await source.getGeo();
 		}
 

@@ -1,3 +1,4 @@
+import { APPLE_FETCH_HEADERS } from "../providers/apple";
 import { DEFAULT_FETCH_OPTIONS } from "../../constant/fetch";
 import { isDebugMode } from "../../utils/common";
 import { fetch, Headers, FormData, type RequestInit } from "undici";
@@ -66,7 +67,7 @@ async function testUploadWorker(
 	function createUploadData(
 		size: number,
 		type: TestType,
-	): { body: FormData | string; headers: Headers } {
+	): { body: FormData | string | Uint8Array<ArrayBuffer>; headers: Headers } {
 		const headers = new Headers(
 			DEFAULT_FETCH_OPTIONS.headers as Record<string, string>,
 		);
@@ -81,6 +82,13 @@ async function testUploadWorker(
 			const formData = new FormData();
 			formData.append("file", blob, "speedtest");
 			return { body: formData, headers };
+		}
+
+		if (type === "Apple") {
+			for (const [key, value] of Object.entries(APPLE_FETCH_HEADERS))
+				headers.set(key, value);
+			headers.set("Content-Type", "application/octet-stream");
+			return { body: new Uint8Array(size), headers };
 		}
 
 		if (type === "Cloudflare") {
@@ -182,6 +190,7 @@ async function testUploadWorker(
 					}
 				}
 
+				onProgress?.(calculateCurrentSpeed(), totalBytesUploaded);
 				const totalDuration = (performance.now() - startTime) / 1000;
 				const instantSpeed = calculateCurrentSpeed();
 				const averageSpeed = (totalBytes * 8) / totalDuration;
@@ -205,8 +214,12 @@ async function testUploadWorker(
 
 		throw new Error("Max retries exceeded");
 	} catch (err: unknown) {
-		if (err instanceof Error && err.name === "AbortError") {
+		if (
+			signal?.aborted ||
+			(err instanceof Error && err.name === "AbortError")
+		) {
 			const durationSeconds = (performance.now() - startTime) / 1000;
+			onProgress?.((totalBytes * 8) / durationSeconds, totalBytesUploaded);
 			return (totalBytes * 8) / durationSeconds;
 		}
 		if (isDebugMode()) {

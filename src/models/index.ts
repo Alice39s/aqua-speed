@@ -1,3 +1,4 @@
+import { getAppleEndpoint } from "@/models/providers/apple";
 import type {
 	TestConfigBase,
 	DownloadTestConfig,
@@ -25,6 +26,14 @@ interface TestEndpoints {
 }
 
 const TEST_ENDPOINTS: TestEndpoints = {
+	Apple: (baseUrl, testType) => ({
+		url: getAppleEndpoint(
+			baseUrl,
+			testType === "download" ? "download" : "upload",
+		),
+		referrer: new URL(baseUrl).origin,
+		fallbackUrls: [],
+	}),
 	LibreSpeed: (baseUrl: string, testType: string) => {
 		// Define all possible path patterns for LibreSpeed
 		const paths = [
@@ -143,6 +152,7 @@ async function measureSpeed(
 
 	const samples: number[] = [];
 	let currentSpeed = 0;
+	let transferredBytes = 0;
 	let activeThreads = thread;
 
 	const {
@@ -163,7 +173,14 @@ async function measureSpeed(
 	}
 
 	// Pre-check URL availability
-	while (!(await checkUrlAvailability(currentUrl, referrer, testType))) {
+	while (
+		!(await checkUrlAvailability(
+			currentUrl,
+			referrer,
+			testType,
+			mergedConfig.type,
+		))
+	) {
 		if (urlIndex >= fallbackUrls.length) {
 			throw new SpeedTestError("All URLs are unavailable");
 		}
@@ -186,7 +203,7 @@ async function measureSpeed(
 	const spinner = logger.create(testType, `Testing ${testType} speed...`);
 	const updateInterval = setInterval(() => {
 		const realSpeed = currentSpeed * activeThreads;
-		const speedFormat = formatSpeed(realSpeed / 1000000);
+		const speedFormat = formatSpeed(realSpeed);
 		spinner.text = `Testing ${testType} speed... ${speedFormat} (${activeThreads} threads)`;
 	}, progressInterval);
 
@@ -229,21 +246,22 @@ async function measureSpeed(
 			);
 
 			try {
-				const workers = Array(activeThreads)
-					.fill(0)
-					.map(() =>
-						attemptSpeedTest(
-							currentUrl,
-							referrer,
-							workerFn,
-							mergedConfig,
-							signal,
-							(speed: number, bytesTransferred: number) => {
-								currentSpeed = speed;
-								onProgress(speed, bytesTransferred);
-							},
-						),
+				const workers = Array.from({ length: activeThreads }, () => {
+					let workerBytes = 0;
+					return attemptSpeedTest(
+						currentUrl,
+						referrer,
+						workerFn,
+						mergedConfig,
+						signal,
+						(speed, bytesTransferred) => {
+							currentSpeed = speed;
+							transferredBytes += bytesTransferred - workerBytes;
+							workerBytes = bytesTransferred;
+							onProgress(speed, transferredBytes);
+						},
 					);
+				});
 
 				const results = await Promise.all(workers);
 				const roundSpeed = results.reduce((a, b) => a + b, 0);
@@ -259,7 +277,14 @@ async function measureSpeed(
 					// Pre-check the next URL before switching
 					while (urlIndex < fallbackUrls.length) {
 						const nextUrl = fallbackUrls[urlIndex];
-						if (await checkUrlAvailability(nextUrl, referrer, testType)) {
+						if (
+							await checkUrlAvailability(
+								nextUrl,
+								referrer,
+								testType,
+								mergedConfig.type,
+							)
+						) {
 							currentUrl = nextUrl;
 							urlIndex++;
 							continue;
@@ -274,10 +299,20 @@ async function measureSpeed(
 				throw error;
 			}
 
-			await sleep(500);
+			if (!signal.aborted)
+				await sleep(
+					Math.min(500, maxTestTime - (performance.now() - startTime)),
+				);
 		}
 
-		return calculateStats(samples);
+		const stats = calculateStats(samples);
+		if (stats.avg === 0)
+			throw new Error(`No ${testType} data transferred before the deadline`);
+		return {
+			...stats,
+			totalBytes: transferredBytes,
+			duration: performance.now() - startTime,
+		};
 	} catch (error) {
 		progressBar.stop();
 		throw new SpeedTestError(

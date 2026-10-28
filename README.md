@@ -27,6 +27,7 @@ A modern network speed test CLI built with Bun and TypeScript.
 
 - 🚀 High-performance speed testing powered by Bun runtime
 - ✨ Multiple test servers support:
+  - Apple (download & upload)
   - Cloudflare (download & upload)
   - LibreSpeed (download & upload)
   - Ookla (TODO)
@@ -46,6 +47,7 @@ A modern network speed test CLI built with Bun and TypeScript.
 | Speedtest.net    | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | Development             |
 | LibreSpeed       | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     |                         |
 | Cloudflare Speed | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | speed.cloudflare.com    |
+| Apple            | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | mensura.cdn-apple.com   |
 | Single File      | :x:                    | :white_check_mark:     | :white_check_mark:     | Not support upload test |
 | Looking Glass    | :large_orange_diamond: | :white_check_mark:     | :white_check_mark:     | Development             |
 | Taierspeed       | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | Development             |
@@ -125,6 +127,9 @@ bun run start
 # Run with defaults (Cloudflare server, 4 threads)
 aqua-speed
 
+# Test against Apple CDN
+aqua-speed --type Apple
+
 # Test against LibreSpeed server
 aqua-speed --type LibreSpeed
 
@@ -143,7 +148,7 @@ Options:
   -t, --thread <number>  Number of concurrent connections
   --timeout <seconds>    Test timeout in seconds
   --debug               Debug mode
-  --type <type>         Test type (SingleFile|LibreSpeed|Cloudflare)
+  --type <type>         Test type (SingleFile|LibreSpeed|Cloudflare|Apple)
 ```
 
 ## :mag: Example Output
@@ -253,3 +258,5 @@ Please ensure:
 - All contributors
 
 [^1]: Recommended to specify a file of at least 10MB.
+
+Apple tests use the CDN capacity endpoints for download, upload, and idle latency. `--server` can select another server exposing `/api/v1/gm/{small,large,slurp}`. These results use Aqua Speed metrics; they do not include the macOS `networkQuality` responsiveness (RPM) calculation.

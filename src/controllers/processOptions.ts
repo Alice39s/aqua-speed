@@ -1,3 +1,4 @@
+import { APPLE_SERVER } from "@/models/providers/apple";
 import { getCloudflareColoInfo } from "@/models/tools/cloudflareColo";
 import type { TestConfig, TestDisplay } from "@/types";
 import { isValidUrl, getDomainName } from "@/utils/common";
@@ -27,11 +28,22 @@ export const DEFAULT_CONFIG: TestConfig = {
  * @param options Test Config
  * @returns Merged Test Config
  */
-async function mergeTestConfig(options: TestConfig): Promise<TestConfig> {
+async function mergeTestConfig(
+	options: Partial<TestConfig>,
+): Promise<TestConfig> {
 	try {
+		const defaults =
+			options.type === "Apple"
+				? {
+						...DEFAULT_CONFIG,
+						server: APPLE_SERVER,
+						sn: "Apple",
+						type: "Apple" as const,
+					}
+				: DEFAULT_CONFIG;
 		// Use default config and merge options
 		const config = {
-			...DEFAULT_CONFIG,
+			...defaults,
 			...options,
 			// Limit thread number to 1-32
 			thread: Math.max(
@@ -91,6 +103,8 @@ async function prepareDisplayInfo(config: TestConfig): Promise<TestDisplay> {
 		if (config.type === "LibreSpeed") {
 			flags.push("LibreSpeed");
 		}
+
+		if (config.type === "Apple") flags.push("Apple");
 
 		if (config.type === "Ookla") {
 			flags.push("Ookla");
