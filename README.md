@@ -105,6 +105,8 @@ git clone https://github.com/Alice39s/aqua-speed.git
 bun install
 ```
 
+Requires Bun 1.4.4 or newer. Dependencies are pinned in `bun.lock`; use `bun install --frozen-lockfile` for reproducible installs.
+
 #### 4. Run
 
 ```bash

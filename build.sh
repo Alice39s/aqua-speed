@@ -16,7 +16,7 @@ PLATFORMS=(
 )
 
 echo "Installing dependencies..."
-bun install
+bun install --frozen-lockfile
 
 for platform in "${PLATFORMS[@]}"; do
     IFS=":" read -r version target <<<"$platform"

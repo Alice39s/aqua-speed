@@ -108,6 +108,8 @@ git clone https://github.com/Alice39s/aqua-speed.git
 bun install
 ```
 
+需要 Bun 1.4.4 或更新版本。依赖版本记录在 `bun.lock` 中，可用 `bun install --frozen-lockfile` 按锁文件安装。
+
 #### 4. 运行
 
 ```bash

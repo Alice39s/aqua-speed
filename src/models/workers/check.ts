@@ -31,7 +31,7 @@ export async function checkUrlAvailability(url: string, referrer: string, testTy
             ...DEFAULT_FETCH_OPTIONS,
             method: testType === 'upload' ? 'POST' : 'GET',
             headers,
-            signal: controller.signal,
+            signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]),
             body: testType === 'upload' ? 'content=test' : undefined
         });
 
@@ -40,9 +40,7 @@ export async function checkUrlAvailability(url: string, referrer: string, testTy
         // Abort the request immediately after getting the status code
         controller.abort();
 
-        // const result = !(response.status >= 400 && response.status < 500);
-        // TODO: Fix this response status check
-        const result = true;
+        const result = response.ok;
         logger.debug(`[checkUrlAvailability] URL check result: ${result}`);
         return result;
     } catch (error) {

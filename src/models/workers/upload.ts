@@ -122,6 +122,7 @@ async function testUploadWorker(
                         throw new Error(`Upload failed: ${response.statusText}`);
                     }
 
+                    await response.arrayBuffer();
                     totalBytes += currentChunkSize;
                     totalBytesUploaded += currentChunkSize;
                     const now = performance.now();
@@ -177,6 +178,7 @@ async function testUploadWorker(
                     : averageSpeed;
 
             } catch (error) {
+                if (signal?.aborted) throw error;
                 retryCount++;
                 if (retryCount >= MAX_RETRIES) throw error;
 

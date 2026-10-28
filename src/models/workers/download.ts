@@ -94,6 +94,11 @@ export async function downloadTestWorker(
                     } as HeadersInit,
                 });
 
+                if (!response.ok) {
+                    await response.body?.cancel();
+                    throw new Error(`Download failed: HTTP ${response.status}`);
+                }
+
                 if (!response.body) throw new Error("No response body");
 
                 const reader = response.body.getReader();
@@ -151,6 +156,7 @@ export async function downloadTestWorker(
                     : averageSpeed;
 
             } catch (error) {
+                if (signal?.aborted) throw error;
                 retryCount++;
                 if (retryCount >= MAX_RETRIES) throw error;
 
@@ -172,6 +178,6 @@ export async function downloadTestWorker(
             message: (err as Error).message,
             stack: (err as Error).stack,
         });
-        return 0;
+        throw err;
     }
 }

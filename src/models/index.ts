@@ -74,7 +74,7 @@ class SpeedTestError extends Error {
  */
 function getTestEndpoint(testEndpoint: string, config: TestConfigBase, testType: string): { url: string; referrer: string; fallbackUrls: string[] } {
     try {
-        const baseUrl = new URL(testEndpoint).origin;
+        const baseUrl = config.type === 'SingleFile' ? testEndpoint : new URL(testEndpoint).origin;
         const testConfig = TEST_ENDPOINTS[config.type as string] || TEST_ENDPOINTS.SingleFile;
         return testConfig(baseUrl, testType);
     } catch (error) {
@@ -143,7 +143,7 @@ async function measureSpeed(
 
     const startTime = performance.now();
     const controller = new AbortController();
-    const { signal } = controller;
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(maxTestTime)]);
 
     const spinner = logger.create(testType, `Testing ${testType} speed...`);
     const updateInterval = setInterval(() => {
