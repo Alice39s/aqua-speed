@@ -1,7 +1,7 @@
 import dns from 'node:dns';
 import { promisify } from 'node:util';
 import Logger from '@/utils/logger';
-import psl from 'psl';
+import { isValid } from 'psl';
 import bogon from 'bogon';
 
 const logger = new Logger();
@@ -105,7 +105,7 @@ export async function resolveDns(url: string, pref: PrefType = null): Promise<Dn
 
     logger.debug(`[Resolve DNS] Domain: ${realDomain}, Preference: ${pref}`);
 
-    if (!psl.isValid(realDomain)) {
+    if (!isValid(realDomain)) {
         logger.debug(`[Resolve DNS] ${realDomain} is not a valid domain.`);
         return result;
     }

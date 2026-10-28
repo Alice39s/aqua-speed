@@ -1,5 +1,5 @@
-import type { TestConfig, SpeedStats, SpeedWindow } from '@/types';
-import psl from 'psl';
+import type { SpeedStats, SpeedWindow } from '@/types';
+import { get } from 'psl';
 import { Address4, Address6 } from 'ip-address';
 
 /**
@@ -99,7 +99,7 @@ export function isValidUrl(url: string): boolean {
  */
 export function getDomainName(url: string): string {
     if (!isValidUrl(url)) return 'Invalid URL';
-    const domain = psl.get(url);
+    const domain = get(new URL(url).hostname);
     if (!domain) return new URL(url).hostname;
     return domain;
 }

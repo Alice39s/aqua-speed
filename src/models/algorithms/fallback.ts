@@ -14,10 +14,10 @@ import { SpeedTestError } from '@/models/index';
 export async function attemptSpeedTest(
     url: string,
     referrer: string,
-    workerFn: (url: string, referrer: string, onProgress: (speed: number) => void, signal: AbortSignal, testType: TestType) => Promise<number>,
+    workerFn: (url: string, referrer: string, onProgress: (speed: number, bytesTransferred: number) => void, signal: AbortSignal, testType: TestType) => Promise<number>,
     config: TestConfigBase,
     signal: AbortSignal,
-    onProgress: (speed: number) => void
+    onProgress: (speed: number, bytesTransferred: number) => void
 ): Promise<number> {
     try {
         return await workerFn(url, referrer, onProgress, signal, config.type || 'SingleFile');

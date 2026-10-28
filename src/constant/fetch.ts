@@ -1,6 +1,6 @@
 import UserAgent from 'user-agents';
 import Logger from '@/utils/logger';
-import type { RequestInit, Dispatcher } from 'undici';
+import type { RequestInit } from 'undici';
 import type { ClientOptions } from 'ws';
 
 const logger = new Logger();
@@ -13,14 +13,7 @@ const getRandomUserAgent = (): string => {
     return ua;
 }
 
-export const DEFAULT_FETCH_OPTIONS: RequestInit & Dispatcher.RequestOptions = {
-    path: '/',
-    mode: 'no-cors',
-    credentials: 'include',
-    redirect: 'follow',
-    referrerPolicy: 'strict-origin-when-cross-origin',
-    method: 'GET',
-    headers: {
+export const DEFAULT_FETCH_HEADERS: Record<string, string> = {
         'User-Agent': getRandomUserAgent(),
         'Accept': '*/*',
         'Accept-Encoding': 'gzip, deflate, br',
@@ -28,14 +21,17 @@ export const DEFAULT_FETCH_OPTIONS: RequestInit & Dispatcher.RequestOptions = {
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1',
         'DNT': '1',
-    },
+    };
+
+export const DEFAULT_FETCH_OPTIONS: RequestInit = {
+    mode: 'no-cors',
+    credentials: 'include',
+    redirect: 'follow',
+    referrerPolicy: 'strict-origin-when-cross-origin',
+    method: 'GET',
+    headers: DEFAULT_FETCH_HEADERS,
     keepalive: true,
     duplex: 'half',
-    
-    // undici Features
-    bodyTimeout: 30000,           // Wait for the body to be received
-    headersTimeout: 30000,        // Wait for the headers to be received
-    maxRedirections: 2,          // Maximum number of redirections
 };
 
 /**

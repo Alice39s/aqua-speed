@@ -17,16 +17,16 @@
     "noEmit": true,
     // Best practices
     "strict": true,
+    "types": ["bun"],
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
     // Some stricter flags (disabled by default)
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
-    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
       ],
       "#/*": [
         "./*"
@@ -35,7 +35,8 @@
   },
   // Include and exclude
   "include": [
-    "src/**/*"
+    "src/**/*.ts",
+    "tests/**/*.ts"
   ],
   "exclude": [
     "node_modules",

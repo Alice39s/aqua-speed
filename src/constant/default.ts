@@ -34,7 +34,7 @@ export const TEST_ENDPOINTS = {
         referrer: "https://speed.cloudflare.com/",
         fallbackUrls: []
     }),
-    SingleFile: (baseUrl: string, testType: string) => ({
+    SingleFile: (baseUrl: string, _testType: string) => ({
         url: baseUrl,
         referrer: '',
         fallbackUrls: []

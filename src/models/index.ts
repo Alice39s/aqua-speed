@@ -47,7 +47,7 @@ const TEST_ENDPOINTS: TestEndpoints = {
         referrer: "https://speed.cloudflare.com/",
         fallbackUrls: []
     }),
-    SingleFile: (baseUrl: string, testType: string) => ({
+    SingleFile: (baseUrl: string, _testType: string) => ({
         url: baseUrl,
         referrer: '',
         fallbackUrls: []
@@ -93,7 +93,7 @@ function getTestEndpoint(testEndpoint: string, config: TestConfigBase, testType:
  */
 async function measureSpeed(
     testEndpoint: string,
-    workerFn: (url: string, referrer: string, onProgress: (speed: number) => void, signal: AbortSignal, testType: TestType) => Promise<number>,
+    workerFn: (url: string, referrer: string, onProgress: (speed: number, bytesTransferred: number) => void, signal: AbortSignal, testType: TestType) => Promise<number>,
     config: TestConfigBase,
     testType: 'download' | 'upload',
 ): Promise<SpeedStats> {
@@ -182,8 +182,9 @@ async function measureSpeed(
 
             try {
                 const workers = Array(activeThreads).fill(0).map(() =>
-                    attemptSpeedTest(currentUrl, referrer, workerFn, mergedConfig, signal, (speed: number) => {
+                    attemptSpeedTest(currentUrl, referrer, workerFn, mergedConfig, signal, (speed: number, bytesTransferred: number) => {
                         currentSpeed = speed;
+                        onProgress(speed, bytesTransferred);
                     })
                 );
 
@@ -242,7 +243,7 @@ async function measureDownload(
     try {
         return await measureSpeed(testEndpoint, downloadTestWorker, config, 'download');
     } catch (error) {
-        logger.error(`[measureDownload] ${error}`);
+        logger.error(`[measureDownload] ${error instanceof Error ? error.message : 'Unknown error'}`);
         throw error;
     }
 }
@@ -261,7 +262,7 @@ async function measureUpload(
     try {
         return await measureSpeed(testEndpoint, testUploadWorker, config, 'upload');
     } catch (error) {
-        logger.error(`[measureUpload] ${error}`);
+        logger.error(`[measureUpload] ${error instanceof Error ? error.message : 'Unknown error'}`);
         throw error;
     }
 }

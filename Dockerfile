@@ -10,6 +10,7 @@ ARG VERSION
 COPY package.json bun.lock tsconfig.json ./
 
 # Install dependencies
+COPY patches/ ./patches/
 RUN bun install --frozen-lockfile
 
 # Copy source code

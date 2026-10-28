@@ -1,6 +1,6 @@
 import type { SpeedTestOptions, TestResult, SpeedStats, LatencyResult } from '@/types';
 import { measureLatency } from '@/models/latencyTest';
-import { sleep, usToMs, isDebugMode } from '@/utils/common';
+import { calculateStats, sleep, usToMs, isDebugMode } from '@/utils/common';
 import { measureDownload, measureUpload } from '@/models';
 import Logger from '@/utils/logger';
 import { getDomainName } from '@/utils/common';
@@ -120,7 +120,7 @@ export async function runSpeedTest(options: SpeedTestOptions): Promise<TestResul
                 name: 'upload',
                 startMessage: 'Testing upload speed...',
                 execute: () => type === 'SingleFile'
-                    ? Promise.resolve({ avg: 0, max: 0, min: 0, stdDev: 0, error: 0 })
+                    ? Promise.resolve(calculateStats([]))
                     : measureUpload(testEndpoint, speedTestConfig),
                 formatResult: (result) => `Upload test completed - Avg: ${formatSpeedResult(result)}`
             }
@@ -142,7 +142,7 @@ export async function runSpeedTest(options: SpeedTestOptions): Promise<TestResul
             timestamp: new Date()
         };
     } catch (error) {
-        logger.error(`Speed test failed: ${error}`);
+        logger.error(`Speed test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         throw error;
     } finally {
         await sleep(300); // Cleanup delay

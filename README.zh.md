@@ -110,6 +110,8 @@ bun install
 
 需要 Bun 1.4.4 或更新版本。依赖版本记录在 `bun.lock` 中，可用 `bun install --frozen-lockfile` 按锁文件安装。
 
+运行 `bun run typecheck`，通过原生 `tsgolint` 引擎执行 TypeScript 7 检查。
+
 #### 4. 运行
 
 ```bash
