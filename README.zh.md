@@ -108,6 +108,8 @@ git clone https://github.com/Alice39s/aqua-speed.git
 bun install
 ```
 
+需要 Bun 1.4.4 或更新版本。依赖版本记录在 `bun.lock` 中，可用 `bun install --frozen-lockfile` 按锁文件安装。
+
 #### 4. 运行
 
 ```bash
@@ -137,7 +139,7 @@ Options:
   -s, --server <url>     测速服务器 URL
   --sn <name>            测速服务器名称
   -t, --thread <number>  并发连接数
-  --timeout <seconds>    测试超时时间 (秒)
+  --timeout <seconds>    每个下载／上传阶段的最长秒数（默认 30）
   --debug               调试模式
   --type <type>         测试类型 (SingleFile|LibreSpeed|Cloudflare)
 ```

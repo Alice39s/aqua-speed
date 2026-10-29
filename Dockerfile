@@ -1,4 +1,4 @@
-FROM oven/bun:1.1-debian AS builder
+FROM oven/bun:1.4.4-debian AS builder
 
 WORKDIR /app
 
@@ -7,21 +7,23 @@ ARG BUILD_DATE
 ARG VERSION
 
 # Copy dependency files
-COPY package.json bun.lockb tsconfig.json ./
+COPY package.json bun.lock tsconfig.json ./
+COPY patches/ ./patches/
 
 # Install dependencies
-RUN bun install --no-install-postinstall
+RUN bun install --frozen-lockfile
 
 # Copy source code
 COPY src/ ./src/
 
 # Second stage
-FROM oven/bun:1.1-debian
+FROM oven/bun:1.4.4-debian
 
 # Install required packages
 USER root
 RUN apt-get update && apt-get install -y \
     iputils-ping \
+    libcap2-bin \
     ncurses-bin \
     && rm -rf /var/lib/apt/lists/* \
     && setcap cap_net_raw+ep /bin/ping

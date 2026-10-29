@@ -5,12 +5,15 @@
     "description": "A modern network speed test CLI built with Bun and TypeScript.",
     "type": "module",
     "scripts": {
-        "build": "bun build ./src/cli.ts --outdir dist",
+        "build": "bun build ./src/cli.ts --target=bun --outdir dist",
         "start": "bun run src/cli.ts",
         "dev": "bun --watch src/cli.ts",
         "test": "bun test",
-        "lint": "biome check --write",
-        "format": "biome format --write"
+        "lint": "biome lint src tests",
+        "format": "biome format --write",
+        "typecheck": "tsc --noEmit",
+        "format:check": "biome format src tests",
+        "check": "bun run lint && bun run typecheck && bun run format:check && bun test && bun run build"
     },
     "author": "Alice39s",
     "license": "GPL-3.0-only",
@@ -23,31 +26,30 @@
         "bun"
     ],
     "devDependencies": {
-        "@biomejs/biome": "1.9.4",
-        "@types/bogon": "^1.0.2",
-        "@types/bun": "latest",
-        "@types/ping": "^0.4.4",
-        "@types/psl": "^1.1.3"
+        "@biomejs/biome": "2.6.3",
+        "@types/bogon": "1.0.2",
+        "@types/bun": "1.4.4",
+        "@types/cli-progress": "3.11.6",
+        "@types/user-agents": "1.0.4",
+        "@types/ws": "8.18.2"
     },
     "peerDependencies": {
         "typescript": "^5.0.0"
     },
     "dependencies": {
-        "@types/cli-progress": "^3.11.6",
-        "@types/user-agents": "^1.0.4",
-        "bogon": "^1.1.0",
-        "bufferutil": "^4.0.8",
-        "chalk": "^5.4.0",
-        "cli-progress": "^3.12.0",
-        "commander": "^12.1.0",
-        "ip-address": "^10.0.1",
-        "ora": "^8.1.1",
-        "ping": "^0.4.4",
-        "psl": "^1.15.0",
-        "table": "^6.9.0",
-        "undici": "^7.2.0",
-        "user-agents": "^1.1.396",
-        "ws": "^8.18.0"
+        "bogon": "1.3.0",
+        "bufferutil": "4.1.0",
+        "chalk": "6.0.1",
+        "cli-progress": "3.12.0",
+        "commander": "15.0.0",
+        "ip-address": "10.7.5",
+        "ora": "9.4.1",
+        "ping": "1.0.0",
+        "psl": "1.15.0",
+        "table": "6.9.0",
+        "undici": "8.12.3",
+        "user-agents": "2.1.227",
+        "ws": "8.22.0"
     },
     "supportedArchitectures": {
         "os": [
@@ -63,5 +65,12 @@
     "trustedDependencies": [
         "@biomejs/biome",
         "bufferutil"
-    ]
+    ],
+    "engines": {
+        "bun": ">=1.4.4"
+    },
+    "packageManager": "bun@1.4.4",
+    "patchedDependencies": {
+        "psl@1.15.0": "patches/psl@1.15.0.patch"
+    }
 }

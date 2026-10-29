@@ -105,6 +105,8 @@ git clone https://github.com/Alice39s/aqua-speed.git
 bun install
 ```
 
+Requires Bun 1.4.4 or newer. Dependencies are pinned in `bun.lock`; use `bun install --frozen-lockfile` for reproducible installs.
+
 #### 4. Run
 
 ```bash
@@ -134,7 +136,7 @@ Options:
   -s, --server <url>     Speed test server URL
   --sn <name>            Speed test server name 
   -t, --thread <number>  Number of concurrent connections  
-  --timeout <seconds>    Test timeout in seconds
+  --timeout <seconds>    Maximum seconds per download/upload phase (default: 30)
   --debug               Debug mode
   --type <type>         Test type (SingleFile|LibreSpeed|Cloudflare)
 ```
