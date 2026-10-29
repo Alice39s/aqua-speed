@@ -55,7 +55,7 @@ const TEST_ENDPOINTS: TestEndpoints = {
 		referrer: "https://speed.cloudflare.com/",
 		fallbackUrls: [],
 	}),
-	SingleFile: (baseUrl: string, testType: string) => ({
+	SingleFile: (baseUrl: string, _testType: string) => ({
 		url: baseUrl,
 		referrer: "",
 		fallbackUrls: [],
@@ -320,7 +320,9 @@ async function measureDownload(
 			"download",
 		);
 	} catch (error) {
-		logger.error(`[measureDownload] ${error}`);
+		logger.error(
+			`[measureDownload] ${error instanceof Error ? error.message : "Unknown error"}`,
+		);
 		throw error;
 	}
 }
@@ -339,7 +341,9 @@ async function measureUpload(
 	try {
 		return await measureSpeed(testEndpoint, testUploadWorker, config, "upload");
 	} catch (error) {
-		logger.error(`[measureUpload] ${error}`);
+		logger.error(
+			`[measureUpload] ${error instanceof Error ? error.message : "Unknown error"}`,
+		);
 		throw error;
 	}
 }

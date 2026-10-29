@@ -1,5 +1,5 @@
 import { fetch, type HeadersInit } from "undici";
-import { DEFAULT_FETCH_OPTIONS } from "@/constant/fetch";
+import { DEFAULT_FETCH_HEADERS } from "@/constant/fetch";
 import Logger from "@/utils/logger";
 import type { TestType } from "@/types";
 
@@ -20,24 +20,16 @@ export async function downloadTestWorker(
 	refer?: string,
 	onProgress?: (speed: number, bytesTransferred: number) => void,
 	signal?: AbortSignal,
-	testType?: TestType,
+	_testType?: TestType,
 ): Promise<number> {
 	const startTime = performance.now();
 	let totalBytes = 0;
 	let totalBytesRead = 0;
-	let previousSpeed = 0;
 
 	// Initialize a sliding window for speed calculation
 	const speedWindow: Array<{ bytes: number; timestamp: number }> = [];
 	const WINDOW_SIZE = 5; // Number of samples to keep
 	const SAMPLE_INTERVAL = 200; // Interval in milliseconds between samples
-
-	// Constants for chunk size adjustment
-	const MAX_CHUNK_SIZE = 2097152; // 2MB
-	const MIN_CHUNK_SIZE = 32768; // 32KB
-	const SPEED_ADJUSTMENT_FACTOR = 1.5;
-	const TARGET_TRANSFER_TIME = 100; // Target transfer time in ms
-	let chunkSize = 65536; // Start with 64KB
 
 	/**
 	 * Calculates the current download speed based on the sliding window.
@@ -93,7 +85,7 @@ export async function downloadTestWorker(
 					method: "GET",
 					signal,
 					headers: {
-						...DEFAULT_FETCH_OPTIONS.headers,
+						...DEFAULT_FETCH_HEADERS,
 						Referer: referer,
 						Origin: referer,
 						Path: url.pathname,
@@ -131,24 +123,6 @@ export async function downloadTestWorker(
 							}
 
 							const currentSpeed = calculateCurrentSpeed();
-
-							// Adapt chunk size based on speed and target transfer time
-							if (currentSpeed > 0) {
-								const optimalChunkSize =
-									(currentSpeed / 8) * (TARGET_TRANSFER_TIME / 1000);
-								if (currentSpeed > previousSpeed) {
-									chunkSize = Math.min(
-										optimalChunkSize * SPEED_ADJUSTMENT_FACTOR,
-										MAX_CHUNK_SIZE,
-									);
-								} else {
-									chunkSize = Math.max(
-										optimalChunkSize / SPEED_ADJUSTMENT_FACTOR,
-										MIN_CHUNK_SIZE,
-									);
-								}
-							}
-							previousSpeed = currentSpeed;
 
 							if (onProgress) {
 								onProgress(currentSpeed, totalBytesRead);

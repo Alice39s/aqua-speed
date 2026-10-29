@@ -166,7 +166,9 @@ export async function runSpeedTest(
 			timestamp: new Date(),
 		};
 	} catch (error) {
-		logger.error(`Speed test failed: ${error}`);
+		logger.error(
+			`Speed test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+		);
 		throw error;
 	} finally {
 		await sleep(300); // Cleanup delay

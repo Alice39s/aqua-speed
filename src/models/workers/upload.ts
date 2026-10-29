@@ -1,11 +1,6 @@
 import { DEFAULT_FETCH_OPTIONS } from "../../constant/fetch";
 import { isDebugMode } from "../../utils/common";
-import {
-	fetch,
-	type Dispatcher,
-	type BodyInit,
-	type HeadersInit,
-} from "undici";
+import { fetch, Headers, FormData, type RequestInit } from "undici";
 import Logger from "../../utils/logger";
 import type { TestType } from "../../types";
 
@@ -120,16 +115,13 @@ async function testUploadWorker(
 						testType,
 					);
 
-					const fetchOptions: Dispatcher.RequestOptions = {
+					const fetchOptions: RequestInit = {
 						method: "POST",
-						//@ts-ignore
-						headers: headers as HeadersInit,
-						//@ts-ignore
-						body: body as BodyInit,
+						headers,
+						body,
 						signal,
 					};
 
-					//@ts-ignore
 					const response = await fetch(testFile, fetchOptions);
 
 					if (!response.ok) {
@@ -223,7 +215,9 @@ async function testUploadWorker(
 			return (totalBytes * 8) / durationSeconds;
 		}
 		if (isDebugMode()) {
-			logger.error(`[testUploadWorker/${testType}] Error: ${err}`);
+			logger.error(
+				`[testUploadWorker/${testType}] Error: ${err instanceof Error ? err.message : "Unknown error"}`,
+			);
 		}
 		throw err;
 	}

@@ -11,7 +11,7 @@
         "test": "bun test",
         "lint": "biome lint src tests",
         "format": "biome format --write",
-        "typecheck": "tsc --noEmit",
+        "typecheck": "oxlint --type-aware --type-check --deny-warnings src tests",
         "format:check": "biome format src tests",
         "check": "bun run lint && bun run typecheck && bun run format:check && bun test && bun run build"
     },
@@ -31,10 +31,10 @@
         "@types/bun": "1.4.4",
         "@types/cli-progress": "3.11.6",
         "@types/user-agents": "1.0.4",
-        "@types/ws": "8.18.2"
-    },
-    "peerDependencies": {
-        "typescript": "^5.0.0"
+        "@types/ws": "8.18.2",
+        "typescript": "7.0.2",
+        "oxlint": "1.90.0",
+        "oxlint-tsgolint": "7.0.2005"
     },
     "dependencies": {
         "bogon": "1.3.0",

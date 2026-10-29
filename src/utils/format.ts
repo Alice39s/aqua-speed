@@ -86,7 +86,7 @@ function formatTitle(title: string): string {
  * @param value The value to format.
  * @returns The value as a string, defaulting to '0' if undefined or null.
  */
-const ensureNumber = (value: unknown): string => {
+const ensureNumber = (value: number | null | undefined): string => {
 	return value === undefined || value === null ? "0" : String(value);
 };
 

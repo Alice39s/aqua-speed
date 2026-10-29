@@ -2,10 +2,10 @@ import type { LatencyStats, TestType } from "../types";
 import { msToMicros, calculateStats, sleep, usToMs } from "../utils/common";
 import Logger from "../utils/logger";
 import { promise as ping } from "ping";
-import { type Dispatcher, fetch, type HeadersInit } from "undici";
+import { type RequestInit, fetch } from "undici";
 import WebSocket from "ws";
 import {
-	DEFAULT_FETCH_OPTIONS,
+	DEFAULT_FETCH_HEADERS,
 	DEFAULT_FETCH_HEADERS_OOKLA,
 } from "../constant/fetch";
 import { isDebugMode } from "../utils/common";
@@ -41,14 +41,16 @@ async function measureICMPLatency(host: string, count = 3): Promise<number> {
 					successCount++;
 				}
 			} catch (err) {
-				logger.error(`[measureICMPLatency] Ping error: ${err}`);
+				logger.error(
+					`[measureICMPLatency] Ping error: ${err instanceof Error ? err.message : "Unknown error"}`,
+				);
 			}
 		});
 
 		await Promise.all(pingPromises);
 
 		return successCount === 0 ? -1 : Math.round(totalLatency / successCount);
-	} catch (error) {
+	} catch {
 		logger.error(`[measureICMPLatency] Invalid URL format: ${host}`);
 		return -1;
 	}
@@ -70,7 +72,7 @@ async function measureTCPLatency(host: string, samples = 3): Promise<number> {
 	let url: URL;
 	try {
 		url = new URL(host);
-	} catch (error) {
+	} catch {
 		logger.error(`[measureTCPLatency] Invalid URL format: ${host}`);
 		return -1;
 	}
@@ -120,49 +122,6 @@ async function measureTCPLatency(host: string, samples = 3): Promise<number> {
 }
 
 /**
- * Measures HTTP/2 latency for a given URL.
- * @param {string} url - The target URL.
- * @param {RequestInit} options - Fetch request options.
- * @returns {Promise<number>} Latency in microseconds, or special error codes.
- * - Returns -1 for general errors.
- * - Returns -2 to signal HTTP/1.1 fallback.
- */
-async function measureHTTPLatencyH2(
-	url: string,
-	options: Dispatcher.RequestOptions,
-): Promise<number> {
-	const controller = new AbortController();
-	const start = process.hrtime.bigint();
-
-	try {
-		const response = await fetch(url, {
-			...options,
-			signal: controller.signal,
-			// @ts-ignore: undici supports 'httpVersion'
-			httpVersion: "2.0",
-		});
-
-		controller.abort();
-		const end = process.hrtime.bigint();
-		const latency = Number(end - start) / 1000; // Convert to ms
-		return response.ok ? Math.round(latency) : -1;
-	} catch (error: unknown) {
-		if (error instanceof Error && error.name === "UnsupportedProtocolError") {
-			return -2; // Try fallback to HTTP/1.1
-		}
-		if (error instanceof Error && error.name === "AbortError") {
-			const end = process.hrtime.bigint();
-			const latency = Number(end - start) / 1000;
-			return Math.round(latency);
-		}
-		if (isDebugMode()) {
-			logger.error(`[measureHTTPLatencyH2] Error: ${error}`);
-		}
-		return -1;
-	}
-}
-
-/**
  * Measures WebSocket latency for a given URL
  * @param {URL} url - The target URL
  * @returns {Promise<number>} Latency in microseconds, or -1 if connection fails
@@ -207,32 +166,29 @@ async function measureHTTPLatency(url: URL, type: TestType): Promise<number> {
 		return -1;
 	}
 
-	const commonOptions: Dispatcher.RequestOptions = {
+	const commonOptions: RequestInit = {
 		method: "GET",
 		headers: {
-			...DEFAULT_FETCH_OPTIONS.headers,
+			...DEFAULT_FETCH_HEADERS,
 			Referer: url.origin,
 			Origin: url.origin,
 		},
-		path: url.pathname,
 	};
 
 	let testUrl: string;
-	let options: Dispatcher.RequestOptions;
+	let options: RequestInit;
 
 	switch (type) {
 		case "Cloudflare":
 			testUrl = `${url.origin}/cdn-cgi/trace`;
 			options = {
 				...commonOptions,
-				path: "/cdn-cgi/trace",
 			};
 			break;
 		case "LibreSpeed":
 			testUrl = url.href;
 			options = {
 				...commonOptions,
-				path: url.pathname,
 			};
 			break;
 		case "Ookla":
@@ -241,21 +197,10 @@ async function measureHTTPLatency(url: URL, type: TestType): Promise<number> {
 			testUrl = url.href;
 			options = {
 				...commonOptions,
-				path: url.pathname,
 			};
 	}
 
-	// Try HTTP/2 latency measurement
-	const h2Result = await measureHTTPLatencyH2(testUrl, options);
-	if (h2Result !== -2) {
-		logger.debug(`[measureHTTPLatency] HTTP/2 latency: ${h2Result / 1000} ms`);
-		return h2Result;
-	}
-
-	// If HTTP/2 is not supported, fallback to HTTP/1.1
-	logger.debug(
-		"[measureHTTPLatency] HTTP/2 is not supported, falling back to HTTP/1.1",
-	);
+	// Use the fetch transport without claiming a negotiated HTTP version.
 	const controller = new AbortController();
 	const start = process.hrtime.bigint();
 
@@ -263,8 +208,6 @@ async function measureHTTPLatency(url: URL, type: TestType): Promise<number> {
 		const response = await fetch(testUrl, {
 			...options,
 			signal: controller.signal,
-			// @ts-ignore: undici supports 'httpVersion'
-			httpVersion: "1.1",
 		});
 
 		controller.abort();
@@ -273,7 +216,9 @@ async function measureHTTPLatency(url: URL, type: TestType): Promise<number> {
 		return response.ok ? Math.round(latency) : -1;
 	} catch (err: unknown) {
 		if (isDebugMode()) {
-			logger.error(`[measureHTTPLatency] Error: ${err}`);
+			logger.error(
+				`[measureHTTPLatency] Error: ${err instanceof Error ? err.message : "Unknown error"}`,
+			);
 		}
 		if (err instanceof Error && err.name === "AbortError") {
 			const end = process.hrtime.bigint();
@@ -308,7 +253,7 @@ export async function measureLatency(
 	let url: URL;
 	try {
 		url = new URL(testEndpoint);
-	} catch (error) {
+	} catch {
 		throw new Error(`Invalid URL format: ${testEndpoint}`);
 	}
 
@@ -345,7 +290,9 @@ export async function measureLatency(
 		await Promise.all(measurementPromises);
 	} catch (error) {
 		latencySpinner.fail("Latency test failed");
-		logger.error(`[measureLatency] Error: ${error}`);
+		logger.error(
+			`[measureLatency] Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+		);
 		throw error;
 	} finally {
 		clearInterval(updateInterval);
