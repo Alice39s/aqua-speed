@@ -24,6 +24,7 @@ async function testUploadWorker(
 	testType?: TestType,
 ): Promise<number> {
 	const startTime = performance.now();
+	let lastCompletedAt = startTime;
 	let totalBytes = 0;
 	let totalBytesUploaded = 0;
 
@@ -140,6 +141,7 @@ async function testUploadWorker(
 					totalBytes += currentChunkSize;
 					totalBytesUploaded += currentChunkSize;
 					const now = performance.now();
+					lastCompletedAt = now;
 
 					if (now - lastReportTime >= SAMPLE_INTERVAL) {
 						speedWindow.push({
@@ -218,7 +220,10 @@ async function testUploadWorker(
 			signal?.aborted ||
 			(err instanceof Error && err.name === "AbortError")
 		) {
-			const durationSeconds = (performance.now() - startTime) / 1000;
+			const durationSeconds =
+				((totalBytesUploaded > 0 ? lastCompletedAt : performance.now()) -
+					startTime) /
+				1000;
 			onProgress?.((totalBytes * 8) / durationSeconds, totalBytesUploaded);
 			return (totalBytes * 8) / durationSeconds;
 		}
