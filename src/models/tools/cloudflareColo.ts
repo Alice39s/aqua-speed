@@ -19,6 +19,7 @@ export async function getCloudflareColoInfo(
 				Accept: "text/plain",
 			},
 			cache: "no-store",
+			signal: AbortSignal.timeout(2000),
 		});
 
 		if (!response.ok) {

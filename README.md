@@ -148,9 +148,17 @@ Options:
   -t, --thread <number>  Number of concurrent connections
   --timeout <seconds>    Maximum seconds per download/upload phase (default: 30)
   --max-data <MB>        Maximum decimal MB per direction (default: adaptive)
+  --ipinfo-token <token> IPInfo token (env: IPINFO_TOKEN or IPINFO_API_KEY)
+  --no-geoip            Skip IP discovery and location lookups
   --debug               Debug mode
   --type <type>         Test type (SingleFile|LibreSpeed|Cloudflare|Apple)
 ```
+
+### GeoIP services
+
+Lookups try GeoJS, IPInfo.es, FreeIPAPI, WP Statistics MaxMind, WP Statistics DB-IP, then IPInfo. Set `--ipinfo-token` to try authenticated IPInfo first; `IPINFO_TOKEN` and `IPINFO_API_KEY` also work, in that order. The argument takes precedence. Tokens are sent only to IPInfo using an Authorization header.
+
+Each provider has a three-second deadline including its response body, within a ten-second lookup budget. Rate limits, invalid JSON, empty data and mismatched IPs advance to the next provider. Self-IP discovery uses GeoJS, FreeIPAPI and IPInfo because the other services require a known address. Location metadata is optional: outages leave it unavailable while the speed test continues. Use `--no-geoip` to skip discovery and location services, including Cloudflare colo metadata. Missing fields are displayed as unavailable; FreeIPAPI's country-wide timezone list is not treated as an address timezone.
 
 ## :mag: Example Output
 

@@ -85,7 +85,7 @@ async function prepareDisplayInfo(config: TestConfig): Promise<TestDisplay> {
 			serverName = config.sn;
 		}
 
-		if (config.type === "Cloudflare") {
+		if (config.type === "Cloudflare" && config.geoip !== false) {
 			try {
 				const coloInfo = await getCloudflareColoInfo(config.server);
 				if (coloInfo?.colo) {

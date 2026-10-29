@@ -30,6 +30,8 @@ export interface TestConfig {
 	thread: number; // -t, --thread <number>
 	timeout: number; // --timeout <seconds>
 	maxTransferBytes?: number;
+	ipinfoToken?: string;
+	geoip?: boolean;
 	type?: TestType; // --type <type>, default: SingleFile, options: LibreSpeed, Cloudflare, Ookla
 	debug: boolean; // --debug
 	privacy: boolean; // --privacy
