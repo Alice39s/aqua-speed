@@ -34,13 +34,20 @@ const server = Bun.serve({
 			return new Response(null, { status: 200 });
 		if (path === "/api/v1/gm/large") {
 			let timer: ReturnType<typeof setInterval>;
+			const startedAt = performance.now();
+			let sent = 0;
 			return new Response(
 				new ReadableStream<Uint8Array>({
 					start(controller) {
-						timer = setInterval(
-							() => controller.enqueue(new Uint8Array(16384)),
-							5,
-						);
+						timer = setInterval(() => {
+							const expected =
+								Math.floor((performance.now() - startedAt) / 5) * 16384;
+							const size = expected - sent;
+							if (size > 0) {
+								sent += size;
+								controller.enqueue(new Uint8Array(size));
+							}
+						}, 5);
 					},
 					cancel() {
 						clearInterval(timer);
@@ -105,9 +112,14 @@ test("continuous Apple download stops at its deadline and keeps transferred byte
 });
 
 test("Apple upload sends raw POST bodies and counts payload bytes", async () => {
-	const result = await measureUpload(origin, { ...config, maxTestTime: 1000 });
+	const result = await measureUpload(origin, {
+		...config,
+		maxTestTime: 1000,
+		maxTransferBytes: 16 * 1024 * 1024,
+	});
 	expect(result.avg).toBeGreaterThan(0);
-	expect(result.totalBytes).toBe(4 * 1024 * 1024);
+	expect(result.totalBytes).toBeGreaterThanOrEqual(1024 * 1024);
+	expect(result.totalBytes % (1024 * 1024)).toBe(0);
 	const uploads = requests.filter((r) => r.path.endsWith("/slurp"));
 	expect(uploads.length).toBeGreaterThan(1);
 	expect(
@@ -165,7 +177,7 @@ test("Apple CLI completes a test and displays both transfer results", async () =
 			"--thread",
 			"1",
 			"--timeout",
-			"5",
+			"8",
 		],
 		{ stdout: "pipe", stderr: "pipe" },
 	);
@@ -180,4 +192,60 @@ test("Apple CLI completes a test and displays both transfer results", async () =
 	expect(stdout).toContain("Download:");
 	expect(stdout).toContain("Upload:");
 	expect(stdout).toContain("Flags: Apple");
+	// Real socket delivery may stay noisy until the deadline on a shared runner.
+	expect(stdout).toContain("Traffic Budget: Adaptive");
 }, 20000);
+
+for (const budget of ["0.1", "1.005"]) {
+	test(`Apple CLI applies ${budget} decimal MB to both directions`, async () => {
+		const proc = Bun.spawn(
+			[
+				process.execPath,
+				"--preload",
+				fileURLToPath(new URL("./fixtures/cli-preload.ts", import.meta.url)),
+				fileURLToPath(new URL("../src/cli.ts", import.meta.url)),
+				"--type",
+				"Apple",
+				"--server",
+				origin,
+				"--thread",
+				"2",
+				"--max-data",
+				budget,
+			],
+			{ stdout: "pipe", stderr: "pipe" },
+		);
+		const [stdout, stderr, exitCode] = await Promise.all([
+			new Response(proc.stdout).text(),
+			new Response(proc.stderr).text(),
+			proc.exited,
+		]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain(`${budget} MB/direction`);
+		expect(stdout.match(/traffic budget reached/g)?.length).toBe(2);
+	}, 8000);
+}
+
+for (const value of ["0", "-1", "NaN", "Infinity", "1e30", "0.0000001"]) {
+	test(`CLI rejects invalid traffic budget ${value} with a usage error`, async () => {
+		const proc = Bun.spawn(
+			[
+				process.execPath,
+				fileURLToPath(new URL("../src/cli.ts", import.meta.url)),
+				"--max-data",
+				value,
+			],
+			{ stdout: "pipe", stderr: "pipe" },
+		);
+		const [stdout, stderr, exitCode] = await Promise.all([
+			new Response(proc.stdout).text(),
+			new Response(proc.stderr).text(),
+			proc.exited,
+		]);
+		expect(exitCode).not.toBe(0);
+		expect(stderr).toContain("Expected a positive number of decimal MB.");
+		expect(stderr).not.toContain("Fatal error");
+		expect(stderr).not.toContain("at ");
+		expect(stdout).not.toContain("Testing download");
+	});
+}

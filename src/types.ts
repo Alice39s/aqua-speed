@@ -29,6 +29,7 @@ export interface TestConfig {
 	sn: string; // --sn <name>
 	thread: number; // -t, --thread <number>
 	timeout: number; // --timeout <seconds>
+	maxTransferBytes?: number;
 	type?: TestType; // --type <type>, default: SingleFile, options: LibreSpeed, Cloudflare, Ookla
 	debug: boolean; // --debug
 	privacy: boolean; // --privacy
@@ -73,6 +74,8 @@ export interface SpeedTestOptions {
 	testEndpoint: string;
 	thread?: number;
 	timeout?: number;
+	/** Fixed payload budget per direction in bytes; omitted uses adaptive defaults. */
+	maxTransferBytes?: number;
 	type?: TestType;
 	// spinner: Ora;
 }
@@ -125,6 +128,12 @@ export interface SpeedStats {
 	totalBytes: number;
 	/** Total duration of the test in milliseconds */
 	duration: number;
+	/** Why the transfer phase ended; skipped phases have no reason. */
+	stopReason?: "stable" | "timeout" | "budget";
+	/** Received download bytes or reserved upload bodies, including retries. */
+	trafficBytes?: number;
+	/** Final payload budget for this direction, in decimal bytes. */
+	trafficLimitBytes?: number;
 	/** Number of samples taken during the test */
 	samples: number[];
 }
@@ -140,7 +149,7 @@ export interface TestConfigBase {
 	maxTestTime?: number;
 	/** Target relative error rate (0-1) */
 	targetError?: number;
-	/** Minimum samples required */
+	/** @deprecated Retained for source compatibility; convergence uses a fixed observation window. */
 	minSamples?: number;
 	/** Progress callback interval in milliseconds */
 	progressInterval?: number;
@@ -150,7 +159,21 @@ export interface TestConfigBase {
 	type?: TestType;
 	/** Debug mode */
 	debug?: boolean;
+	/** Fixed payload budget in bytes; omitted uses an adaptive 250 MB–2.5 GB cap. */
+	maxTransferBytes?: number;
+	/** Reuse a ledger to keep retries within the same budget. */
+	trafficBudget?: TrafficBudget;
 	onProgress?: (speed: number, bytesTransferred: number) => void;
+}
+
+export interface TrafficBudget {
+	readonly limitBytes: number;
+	readonly usedBytes: number;
+	readonly exhausted: boolean;
+	startAttempt: () => void;
+	observe: (elapsed: number, bitsPerSecond: number) => void;
+	consumeDownload: (bytes: number) => void;
+	reserveUpload: (bytes: number, overhead?: number) => number;
 }
 
 /**
@@ -163,6 +186,7 @@ export type WorkerFn = (
 	onProgress: (speed: number, bytesTransferred: number) => void,
 	signal: AbortSignal,
 	testType: TestType,
+	trafficBudget?: TrafficBudget,
 ) => Promise<number>;
 
 /**

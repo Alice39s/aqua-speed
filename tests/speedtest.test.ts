@@ -8,7 +8,11 @@ import {
 	maskIpAddress,
 	getDomainName,
 } from "../src/utils/common";
-import { formatSpeed, formatLatency } from "../src/utils/format";
+import {
+	formatSpeed,
+	formatLatency,
+	formatSpeedResult,
+} from "../src/utils/format";
 
 const requests: { path: string; method: string; size: number }[] = [];
 const server = Bun.serve({
@@ -103,5 +107,17 @@ test("server labels preserve full hostnames and distinguish subdomains", () => {
 	);
 	expect(getDomainName("https://nbg1-speed.example.com/")).toBe(
 		"nbg1-speed.example.com",
+	);
+});
+
+test("CLI result labels distinguish convergence, traffic exhaustion, and deadline", () => {
+	expect(formatSpeedResult({ avg: 100e6, stopReason: "stable" })).toBe(
+		"100.00 Mbps (stable, stopped early)",
+	);
+	expect(formatSpeedResult({ avg: 100e6, stopReason: "budget" })).toBe(
+		"100.00 Mbps (traffic budget reached)",
+	);
+	expect(formatSpeedResult({ avg: 100e6, stopReason: "timeout" })).toBe(
+		"100.00 Mbps",
 	);
 });

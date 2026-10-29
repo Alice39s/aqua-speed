@@ -35,6 +35,18 @@ function formatSpeed(bps: number): string {
 	return `${value.toFixed(2)} ${units[exp]}`;
 }
 
+function formatSpeedResult(
+	result: Pick<SpeedStats, "avg" | "stopReason">,
+): string {
+	const reason =
+		result.stopReason === "budget"
+			? " (traffic budget reached)"
+			: result.stopReason === "stable"
+				? " (stable, stopped early)"
+				: "";
+	return `${(result.avg / 1000000).toFixed(2)} Mbps${reason}`;
+}
+
 /**
  * Format Latency
  * @param microseconds Latency in microseconds
@@ -196,6 +208,7 @@ export {
 	formatLatency,
 	formatLatencyStats,
 	formatSpeed,
+	formatSpeedResult,
 	formatSpeedStats,
 	formatTestResults,
 };

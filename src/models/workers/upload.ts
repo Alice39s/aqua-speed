@@ -1,9 +1,10 @@
+import { setTimeout as delay } from "node:timers/promises";
 import { APPLE_FETCH_HEADERS } from "../providers/apple";
 import { DEFAULT_FETCH_OPTIONS } from "../../constant/fetch";
 import { isDebugMode } from "../../utils/common";
-import { fetch, Headers, FormData, type RequestInit } from "undici";
+import { fetch, Headers, type RequestInit } from "undici";
 import Logger from "../../utils/logger";
-import type { TestType } from "../../types";
+import type { TestType, TrafficBudget } from "../../types";
 
 const logger = new Logger();
 
@@ -22,11 +23,13 @@ async function testUploadWorker(
 	onProgress?: (speed: number, bytesTransferred: number) => void,
 	signal?: AbortSignal,
 	testType?: TestType,
+	trafficBudget?: TrafficBudget,
 ): Promise<number> {
 	const startTime = performance.now();
 	let lastCompletedAt = startTime;
 	let totalBytes = 0;
 	let totalBytesUploaded = 0;
+	let sentBytes = 0;
 
 	// Speed calculation window
 	const speedWindow: Array<{ bytes: number; timestamp: number }> = [];
@@ -39,6 +42,14 @@ async function testUploadWorker(
 	const CLOUDFLARE_MIN_CHUNK_SIZE = 256 * 1024; // 256KB
 	let currentChunkSize =
 		testType === "LibreSpeed" ? LIBRE_SPEED_CHUNK_SIZE : 1024 * 1024; // Initial 1MB for Cloudflare
+	const boundary = `aqua-speed-${crypto.randomUUID()}`;
+	const encoder = new TextEncoder();
+	const prefix = encoder.encode(
+		`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="speedtest"\r\nContent-Type: application/octet-stream\r\n\r\n`,
+	);
+	const suffix = encoder.encode(`\r\n--${boundary}--\r\n`);
+	const overhead =
+		testType === "LibreSpeed" ? prefix.length + suffix.length : 0;
 
 	/**
 	 * Calculates current upload speed using sliding window
@@ -68,7 +79,7 @@ async function testUploadWorker(
 	function createUploadData(
 		size: number,
 		type: TestType,
-	): { body: FormData | string | Uint8Array<ArrayBuffer>; headers: Headers } {
+	): { body: string | Uint8Array<ArrayBuffer>; headers: Headers } {
 		const headers = new Headers(
 			DEFAULT_FETCH_OPTIONS.headers as Record<string, string>,
 		);
@@ -79,10 +90,11 @@ async function testUploadWorker(
 		headers.set("Origin", referer);
 
 		if (type === "LibreSpeed") {
-			const blob = new Blob([new Uint8Array(LIBRE_SPEED_CHUNK_SIZE)]);
-			const formData = new FormData();
-			formData.append("file", blob, "speedtest");
-			return { body: formData, headers };
+			const body = new Uint8Array(size + overhead);
+			body.set(prefix);
+			body.set(suffix, prefix.length + size);
+			headers.set("Content-Type", `multipart/form-data; boundary=${boundary}`);
+			return { body, headers };
 		}
 
 		if (type === "Apple") {
@@ -107,6 +119,8 @@ async function testUploadWorker(
 	try {
 		while (retryCount < MAX_RETRIES) {
 			try {
+				if (signal?.aborted || trafficBudget?.exhausted)
+					return (totalBytes * 8000) / (performance.now() - startTime);
 				if (typeof testType !== "string") {
 					throw new Error("testType must be a string");
 				}
@@ -119,27 +133,57 @@ async function testUploadWorker(
 				const chunks = Math.ceil(maxSize / currentChunkSize);
 
 				for (let i = 0; i < chunks; i++) {
-					const { body, headers } = createUploadData(
-						currentChunkSize,
-						testType,
-					);
+					if (signal?.aborted || trafficBudget?.exhausted) break;
+					const size = trafficBudget
+						? trafficBudget.reserveUpload(
+								Math.floor(currentChunkSize),
+								overhead,
+							)
+						: Math.floor(currentChunkSize);
+					if (size === 0) break;
+					const { body, headers } = createUploadData(size, testType);
 
+					const payload =
+						typeof body === "string" ? encoder.encode(body) : body;
+					let offset = 0;
+					const payloadStart = testType === "LibreSpeed" ? prefix.length : 0;
+					const stream = new ReadableStream<Uint8Array>({
+						pull(controller) {
+							if (signal?.aborted) {
+								controller.close();
+								return;
+							}
+							const end = Math.min(offset + 65536, payload.byteLength);
+							const before = Math.max(0, Math.min(size, offset - payloadStart));
+							const after = Math.max(0, Math.min(size, end - payloadStart));
+							controller.enqueue(payload.subarray(offset, end));
+							offset = end;
+							// Count payload handed to the transport, even while the POST awaits a response.
+							// Multipart framing is charged to the budget, but is not measured payload.
+							sentBytes += after - before;
+							onProgress?.(calculateCurrentSpeed(), sentBytes);
+							if (offset === payload.byteLength) controller.close();
+						},
+					});
+					headers.set("Content-Length", String(payload.byteLength));
 					const fetchOptions: RequestInit = {
 						method: "POST",
 						headers,
-						body,
+						body: stream,
+						duplex: "half",
 						signal,
 					};
 
 					const response = await fetch(testFile, fetchOptions);
 
 					if (!response.ok) {
+						await response.body?.cancel();
 						throw new Error(`Upload failed: ${response.statusText}`);
 					}
 
-					await response.arrayBuffer();
-					totalBytes += currentChunkSize;
-					totalBytesUploaded += currentChunkSize;
+					await response.body?.cancel();
+					totalBytes += size;
+					totalBytesUploaded += size;
 					const now = performance.now();
 					lastCompletedAt = now;
 
@@ -176,12 +220,11 @@ async function testUploadWorker(
 							}
 						}
 
-						if (onProgress) {
-							onProgress(currentSpeed, totalBytesUploaded);
-						}
-
 						lastReportTime = now;
 					}
+					onProgress?.(calculateCurrentSpeed(), sentBytes);
+					// A confirmed plateau may cancel the batch between POST requests.
+					if (signal?.aborted) break;
 
 					// Check if we should continue based on achieved speed
 					if (speedWindow.length >= WINDOW_SIZE) {
@@ -192,7 +235,7 @@ async function testUploadWorker(
 					}
 				}
 
-				onProgress?.(calculateCurrentSpeed(), totalBytesUploaded);
+				onProgress?.(calculateCurrentSpeed(), sentBytes);
 				const totalDuration = (performance.now() - startTime) / 1000;
 				const instantSpeed = calculateCurrentSpeed();
 				const averageSpeed = (totalBytes * 8) / totalDuration;
@@ -210,7 +253,7 @@ async function testUploadWorker(
 				logger.debug(
 					`Retry attempt ${retryCount} after error: ${(error as Error).message}`,
 				);
-				await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+				await delay(RETRY_DELAY, undefined, { signal });
 			}
 		}
 
@@ -224,7 +267,7 @@ async function testUploadWorker(
 				((totalBytesUploaded > 0 ? lastCompletedAt : performance.now()) -
 					startTime) /
 				1000;
-			onProgress?.((totalBytes * 8) / durationSeconds, totalBytesUploaded);
+			onProgress?.((totalBytes * 8) / durationSeconds, sentBytes);
 			return (totalBytes * 8) / durationSeconds;
 		}
 		if (isDebugMode()) {
