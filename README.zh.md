@@ -12,7 +12,7 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-%23007ACC.svg?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Bun](https://img.shields.io/badge/Bun-%2314151a.svg?style=flat&logo=bun&logoColor=#fbf0df)](https://bun.sh)
-[![Biome](https://img.shields.io/badge/Biome-%23171c2b.svg?style=flat&logo=biome&logoColor=#60a5fa)](https://biomejs.dev/)
+[![Oxc](https://img.shields.io/badge/Oxc-lint%20%26%20format-yellow)](https://oxc.rs)
 [![License](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](LICENSE)
 
 </div>
@@ -23,7 +23,7 @@
 
 </div>
 
->[!IMPORTANT]
+> [!IMPORTANT]
 > 如本文和 [README.md](README.md) (英文版本) 不一致，请以前者为准。
 
 ## :star2: 特性一览
@@ -40,7 +40,7 @@
   - 下载/上传速度
   - 抖动分析
 - 🎨 美观的 CLI 界面，支持实时进度显示
-- 🛡️ 完备的 TypeScript 类型支持、使用 Biome 约束代码风格
+- 🛡️ 完备的 TypeScript 类型支持、使用 Oxc 约束代码风格
 
 ## :star: 支持的测速服务端
 
@@ -65,12 +65,14 @@
 从 [Releases](https://github.com/Alice39s/aqua-speed/releases) 下载最新的二进制文件压缩包
 
 #### :penguin: Linux & :apple: macOS
+
 ```bash
 chmod +x aqua-speed
 ./aqua-speed
 ```
 
 #### :window: Windows
+
 ```bash
 ./aqua-speed.exe
 ```
@@ -121,6 +123,7 @@ bun run start
 ## :book: 基本用法
 
 ### :rocket: 快速开始
+
 ```bash
 # 使用默认设置运行 (Cloudflare 服务器, 4 线程)
 aqua-speed
@@ -204,7 +207,7 @@ bun run build:binary
 
 ### :scroll: 代码风格
 
-本项目使用 Biome 进行代码格式化和 lint (使用 `biome format` 和 `biome check`):
+本项目使用 Oxc 进行代码格式化和 lint (使用 `oxfmt` 和 `oxlint --type-aware --type-check`):
 
 ```bash
 # 格式化代码
@@ -212,6 +215,9 @@ bun run format
 
 # 代码检查
 bun run lint
+
+# 运行全部检查
+bun run check
 ```
 
 ## :fork_and_knife: 贡献
@@ -223,8 +229,9 @@ bun run lint
 5. 提交 pull request
 
 请确保：
+
 - 测试通过
-- 代码遵循 Biome 标准
+- 代码遵循 Oxc 标准
 - 提交信息清晰
 - 文档已更新
 

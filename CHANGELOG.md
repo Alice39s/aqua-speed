@@ -64,33 +64,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-* **Initial release features (from 1.0.1):**
-    * Core speed test functionality
-    * Download and upload speed tests
-    * Latency measurement using TCP and HTTP protocols
-* **New features:**
-    * New Aqua Speed banner images in English and Chinese
-    * Additional test types support (Cloudflare, LibreSpeed, Ookla)
-    * Improved latency measurement with ICMP, TCP, and HTTP protocols
-    * Dynamic chunk size adjustment for download test
-    * Enhanced speed test metrics with sliding window and adaptive chunk size
-* **Additional features (from 1.0.2):**
-    * Support for DNS resolution and IP geolocation
-    * Cloudflare CDN location detection
-    * Configurable test parameters
+- **Initial release features (from 1.0.1):**
+  - Core speed test functionality
+  - Download and upload speed tests
+  - Latency measurement using TCP and HTTP protocols
+- **New features:**
+  - New Aqua Speed banner images in English and Chinese
+  - Additional test types support (Cloudflare, LibreSpeed, Ookla)
+  - Improved latency measurement with ICMP, TCP, and HTTP protocols
+  - Dynamic chunk size adjustment for download test
+  - Enhanced speed test metrics with sliding window and adaptive chunk size
+- **Additional features (from 1.0.2):**
+  - Support for DNS resolution and IP geolocation
+  - Cloudflare CDN location detection
+  - Configurable test parameters
 
 ### Changed
 
-* Refactored codebase to improve maintainability and extensibility
-* Optimized download test algorithm for better accuracy (from 1.0.2)
-* Improved overall user experience and UI (from 1.0.2)
-* Updated dependencies to latest versions
+- Refactored codebase to improve maintainability and extensibility
+- Optimized download test algorithm for better accuracy (from 1.0.2)
+- Improved overall user experience and UI (from 1.0.2)
+- Updated dependencies to latest versions
 
 ### Fixed
 
-* Resolved workflow build error
-* Improved error handling and logging
-* Minor bug fixes and stability improvements (from 1.0.2)
+- Resolved workflow build error
+- Improved error handling and logging
+- Minor bug fixes and stability improvements (from 1.0.2)
 
 # 1.0.2 (2024-12-27)
 

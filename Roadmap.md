@@ -3,6 +3,7 @@
 ## Phase 1: Core Features Implementation :construction:
 
 ### Server Support :server:
+
 - [x] LibreSpeed Integration :zap:
   - [x] Download test
   - [x] Upload test
@@ -49,6 +50,7 @@
   - [ ] Homebrew package
 
 ### Linux Support :penguin:
+
 - [ ] Distribution Packages :package:
   - [ ] DEB package (Debian/Ubuntu)
   - [ ] RPM package (Fedora/CentOS)
@@ -75,6 +77,7 @@
   - [ ] Report sharing (via Server)
 
 ### Configuration System :wrench:
+
 - [ ] Server Management
   - [ ] Custom server groups
   - [ ] Automatic server selection
@@ -86,6 +89,7 @@
 ## Phase 4: Integration & Deployment :rocket:
 
 ### Container Support :whale:
+
 - [x] Docker Integration
   - [x] Multi-arch images
   - [ ] K3s / K8s manifests
@@ -95,6 +99,7 @@
   - [x] Release automation
 
 ### Documentation :books:
+
 - [ ] Developer Documentation
   - [ ] API documentation
   - [ ] Contributing guidelines
