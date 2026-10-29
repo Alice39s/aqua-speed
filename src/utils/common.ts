@@ -31,10 +31,16 @@ export function usToMs(us: number): number {
 /**
  * Calculates statistics from speed samples
  * @param samples - Array of speed measurements in bps
+ * @param includeZero - Include stalled intervals when summarizing throughput
  * @returns Speed statistics
  */
-export function calculateStats(samples: number[]): SpeedStats {
-	const validSamples = samples.filter((s) => s > 0);
+export function calculateStats(
+	samples: number[],
+	includeZero = false,
+): SpeedStats {
+	const validSamples = samples.filter(
+		(s) => Number.isFinite(s) && (includeZero ? s >= 0 : s > 0),
+	);
 	if (validSamples.length === 0)
 		return {
 			min: 0,
@@ -55,7 +61,8 @@ export function calculateStats(samples: number[]): SpeedStats {
 		validSamples.reduce((acc, val) => acc + (val - avg) ** 2, 0) /
 		validSamples.length;
 	const stdDev = Math.sqrt(variance);
-	const error = (stdDev / avg) * (1.96 / Math.sqrt(validSamples.length));
+	const error =
+		avg > 0 ? (stdDev / avg) * (1.96 / Math.sqrt(validSamples.length)) : 1;
 
 	return {
 		min,

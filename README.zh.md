@@ -257,3 +257,9 @@ bun run check
 [^1]: 自定义文件 URL 暂不支持测试上传，仅支持下载、推荐指定 10MB 以上的文件。
 
 Apple 测速：`aqua-speed --type Apple`。支持下载、上传和空闲延迟测量，可用 `--server` 指定提供 `/api/v1/gm/{small,large,slurp}` 接口的服务。结果使用 Aqua Speed 的指标，不包含 macOS `networkQuality` 的响应性（RPM）计算。
+
+### 稳定后提前结束
+
+`--timeout` 表示每个传输阶段的最长时长。所有指定连接的总吞吐量稳定后，下载和上传可以提前结束。默认至少测量五秒，跳过最初一秒的起步阶段，再检查最近两秒的波动幅度和线性拟合趋势；稳定状态还需持续 600 毫秒。持续升速、停顿和反复波动会继续测到截止时间。
+
+提前结束时，CLI 显示 `stable, stopped early`。程序取消剩余请求，等待连接收尾后进入下一阶段，并保留传输字节统计。测量期间按 `--thread` 保持固定连接数。库调用可通过 `minTestTime`、`minSamples` 和 `targetError` 调整判断条件；`SpeedStats.stopReason` 返回 `stable` 或 `timeout`。

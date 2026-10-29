@@ -1,4 +1,4 @@
-import type { TestConfigBase, TestType } from "@/types";
+import type { TestConfigBase, WorkerFn } from "@/types";
 import { SpeedTestError } from "@/models/index";
 
 /**
@@ -14,13 +14,7 @@ import { SpeedTestError } from "@/models/index";
 export async function attemptSpeedTest(
 	url: string,
 	referrer: string,
-	workerFn: (
-		url: string,
-		referrer: string,
-		onProgress: (speed: number, bytesTransferred: number) => void,
-		signal: AbortSignal,
-		testType: TestType,
-	) => Promise<number>,
+	workerFn: WorkerFn,
 	config: TestConfigBase,
 	signal: AbortSignal,
 	onProgress: (speed: number, bytesTransferred: number) => void,

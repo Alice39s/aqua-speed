@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import { APPLE_FETCH_HEADERS } from "../providers/apple";
 import { fetch, type HeadersInit } from "undici";
 import { DEFAULT_FETCH_HEADERS } from "@/constant/fetch";
@@ -26,6 +27,7 @@ export async function downloadTestWorker(
 	const startTime = performance.now();
 	let totalBytes = 0;
 	let totalBytesRead = 0;
+	let currentSpeed = 0;
 
 	// Initialize a sliding window for speed calculation
 	const speedWindow: Array<{ bytes: number; timestamp: number }> = [];
@@ -126,14 +128,12 @@ export async function downloadTestWorker(
 								speedWindow.shift();
 							}
 
-							const currentSpeed = calculateCurrentSpeed();
-
-							if (onProgress) {
-								onProgress(currentSpeed, totalBytesRead);
-							}
+							currentSpeed = calculateCurrentSpeed();
 
 							lastReportTime = now;
 						}
+						// The phase sampler needs byte deltas even between UI refreshes.
+						onProgress?.(currentSpeed, totalBytesRead);
 					}
 				}
 
@@ -155,7 +155,7 @@ export async function downloadTestWorker(
 				logger.debug(
 					`Retry attempt ${retryCount} after error: ${(error as Error).message}`,
 				);
-				await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+				await delay(RETRY_DELAY, undefined, { signal });
 			}
 		}
 

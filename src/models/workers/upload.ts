@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import { APPLE_FETCH_HEADERS } from "../providers/apple";
 import { DEFAULT_FETCH_OPTIONS } from "../../constant/fetch";
 import { isDebugMode } from "../../utils/common";
@@ -134,6 +135,7 @@ async function testUploadWorker(
 					const response = await fetch(testFile, fetchOptions);
 
 					if (!response.ok) {
+						await response.body?.cancel();
 						throw new Error(`Upload failed: ${response.statusText}`);
 					}
 
@@ -176,12 +178,11 @@ async function testUploadWorker(
 							}
 						}
 
-						if (onProgress) {
-							onProgress(currentSpeed, totalBytesUploaded);
-						}
-
 						lastReportTime = now;
 					}
+					onProgress?.(calculateCurrentSpeed(), totalBytesUploaded);
+					// A confirmed plateau may cancel the batch between POST requests.
+					if (signal?.aborted) break;
 
 					// Check if we should continue based on achieved speed
 					if (speedWindow.length >= WINDOW_SIZE) {
@@ -210,7 +211,7 @@ async function testUploadWorker(
 				logger.debug(
 					`Retry attempt ${retryCount} after error: ${(error as Error).message}`,
 				);
-				await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+				await delay(RETRY_DELAY, undefined, { signal });
 			}
 		}
 

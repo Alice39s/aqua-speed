@@ -4,16 +4,16 @@ import type {
 	DownloadTestConfig,
 	SpeedStats,
 	UploadTestConfig,
-	TestType,
+	WorkerFn,
 } from "@/types";
 import { DEFAULT_TEST_OPTIONS } from "@/constant/default";
-import { sleep, calculateStats } from "@/utils/common";
+import { calculateStats } from "@/utils/common";
 import { formatSpeed } from "@/utils/format";
 import Logger from "@/utils/logger";
 import { downloadTestWorker } from "@/models/workers/download";
 import { testUploadWorker } from "@/models/workers/upload";
 import { checkUrlAvailability } from "@/models/workers/check";
-import { adjustThreadCount } from "@/models/algorithms/thread";
+import { createConvergenceTracker } from "@/models/algorithms/convergence";
 import { attemptSpeedTest } from "@/models/algorithms/fallback";
 
 const logger = new Logger();
@@ -121,13 +121,7 @@ function getTestEndpoint(
  */
 async function measureSpeed(
 	testEndpoint: string,
-	workerFn: (
-		url: string,
-		referrer: string,
-		onProgress: (speed: number, bytesTransferred: number) => void,
-		signal: AbortSignal,
-		testType: TestType,
-	) => Promise<number>,
+	workerFn: WorkerFn,
 	config: TestConfigBase,
 	testType: "download" | "upload",
 ): Promise<SpeedStats> {
@@ -144,20 +138,16 @@ async function measureSpeed(
 		...config,
 		thread: config.thread ?? DEFAULT_TEST_OPTIONS.thread,
 	};
-	const {
-		minTestTime,
-		maxTestTime,
-		targetError,
-		minSamples,
-		progressInterval,
-		thread,
-		debug,
-	} = mergedConfig;
+	const { maxTestTime, progressInterval, thread, debug } = mergedConfig;
 
-	const samples: number[] = [];
-	let currentSpeed = 0;
-	let totalBytes = 0;
-	let activeThreads = thread;
+	let transferredBytes = 0;
+	let recentSpeed = 0;
+	let previousBytes = 0;
+	let previousTime = 0;
+	let stopReason: "stable" | "timeout" = "timeout";
+	const tracker = createConvergenceTracker(mergedConfig);
+	let lastProgressTime = 0;
+	const startedWorkers = new Set<number>();
 
 	const {
 		url: initialUrl,
@@ -205,11 +195,6 @@ async function measureSpeed(
 	]);
 
 	const spinner = logger.create(testType, `Testing ${testType} speed...`);
-	const updateInterval = setInterval(() => {
-		const realSpeed = currentSpeed * activeThreads;
-		const speedFormat = formatSpeed(realSpeed);
-		spinner.text = `Testing ${testType} speed... ${speedFormat} (${activeThreads} threads)`;
-	}, progressInterval);
 
 	const progressBar = logger.createProgressBar(
 		`${testType.charAt(0).toUpperCase() + testType.slice(1)} Speed Test`,
@@ -228,92 +213,104 @@ async function measureSpeed(
 		});
 	};
 
-	try {
-		while (true) {
-			const elapsedTime = performance.now() - startTime;
-			if (elapsedTime >= maxTestTime) break;
-
-			const stats = calculateStats(samples);
-			if (
-				elapsedTime >= minTestTime &&
-				samples.length >= minSamples &&
-				stats.error <= targetError
-			) {
-				break;
-			}
-
-			activeThreads = adjustThreadCount(
-				samples,
-				activeThreads,
-				stats,
-				mergedConfig,
-			);
-
-			try {
-				const workers = Array.from({ length: activeThreads }, () => {
-					let workerBytes = 0;
-					return attemptSpeedTest(
-						currentUrl,
-						referrer,
-						workerFn,
-						mergedConfig,
-						signal,
-						(speed, bytes) => {
-							currentSpeed = speed;
-							totalBytes += bytes - workerBytes;
-							workerBytes = bytes;
-							onProgress(speed, totalBytes);
-						},
-					);
-				});
-
-				const results = await Promise.all(workers);
-				const roundSpeed = results.reduce((a, b) => a + b, 0);
-				samples.push(roundSpeed);
-			} catch (error) {
-				// If current URL fails during test and we have fallback URLs, try the next one
-				if (urlIndex < fallbackUrls.length) {
-					if (debug) {
-						logger.debug(
-							`[measureSpeed] Test failed for ${currentUrl}, switching to fallback URL: ${fallbackUrls[urlIndex]}`,
-						);
-					}
-					// Pre-check the next URL before switching
-					while (urlIndex < fallbackUrls.length) {
-						const nextUrl = fallbackUrls[urlIndex];
-						if (
-							await checkUrlAvailability(
-								nextUrl,
-								referrer,
-								testType,
-								mergedConfig.type,
-							)
-						) {
-							currentUrl = nextUrl;
-							urlIndex++;
-							continue;
-						}
-						urlIndex++;
-					}
-					if (urlIndex >= fallbackUrls.length) {
-						throw new SpeedTestError("All URLs are unavailable");
-					}
-					continue;
-				}
-				throw error;
-			}
-
-			if (!signal.aborted) await sleep(500);
+	const sample = (flush = false) => {
+		if (signal.aborted && !flush) return;
+		const elapsed = performance.now() - startTime;
+		if (elapsed <= previousTime) return;
+		if (!flush || elapsed - previousTime >= 200) {
+			recentSpeed =
+				((transferredBytes - previousBytes) * 8000) / (elapsed - previousTime);
 		}
+		previousTime = elapsed;
+		previousBytes = transferredBytes;
+		if (flush || elapsed - lastProgressTime >= progressInterval) {
+			spinner.text = `Testing ${testType} speed... ${formatSpeed(recentSpeed)} (${thread} threads)`;
+			onProgress(recentSpeed, transferredBytes);
+			config.onProgress?.(recentSpeed, transferredBytes);
+			lastProgressTime = elapsed;
+		}
+		const stable =
+			!flush &&
+			tracker.sample(elapsed, transferredBytes, startedWorkers.size === thread);
+		if (!signal.aborted && stable) {
+			stopReason = "stable";
+			controller.abort();
+		}
+	};
+	// Sampling is independent of request completion, including continuous CDN downloads.
+	const updateInterval = setInterval(() => sample(), 200);
 
-		const stats = calculateStats(samples);
-		if (stats.avg === 0)
+	try {
+		while (!signal.aborted) {
+			startedWorkers.clear();
+			const batchController = new AbortController();
+			const batchSignal = AbortSignal.any([signal, batchController.signal]);
+			const workers = Array.from({ length: thread }, async (_, worker) => {
+				try {
+					while (!batchSignal.aborted) {
+						let workerBytes = 0;
+						startedWorkers.delete(worker);
+						await attemptSpeedTest(
+							currentUrl,
+							referrer,
+							workerFn,
+							mergedConfig,
+							batchSignal,
+							(_speed, bytesTransferred) => {
+								if (bytesTransferred > 0) startedWorkers.add(worker);
+								transferredBytes += bytesTransferred - workerBytes;
+								workerBytes = bytesTransferred;
+							},
+						);
+						if (!batchSignal.aborted && workerBytes === 0) {
+							throw new Error(`No ${testType} data transferred`);
+						}
+					}
+				} catch (error) {
+					batchController.abort();
+					throw error;
+				}
+			});
+			// Settle every connection before returning a result or switching endpoints.
+			const results = await Promise.allSettled(workers);
+			const failed = results.find((result) => result.status === "rejected");
+			if (failed?.status === "rejected") {
+				if (signal.aborted) throw failed.reason;
+				let available = false;
+				while (urlIndex < fallbackUrls.length && !signal.aborted) {
+					const nextUrl = fallbackUrls[urlIndex++];
+					if (
+						await checkUrlAvailability(
+							nextUrl,
+							referrer,
+							testType,
+							mergedConfig.type,
+						)
+					) {
+						currentUrl = nextUrl;
+						available = true;
+						break;
+					}
+				}
+				if (!available) throw failed.reason;
+				// A new endpoint must earn its own stable window.
+				tracker.reset(performance.now() - startTime, transferredBytes);
+				startedWorkers.clear();
+				continue;
+			}
+		}
+		// Flush final byte reports from cancelled workers without changing the stop reason.
+		sample(true);
+		const measured = tracker.statistics();
+		const duration = performance.now() - startTime;
+		const stats =
+			measured.samples.length > 0
+				? measured
+				: calculateStats([(transferredBytes * 8000) / duration], true);
+		if (transferredBytes === 0) {
 			throw new Error(`No ${testType} data transferred before the deadline`);
-		return {
-			...stats,
-			totalBytes,
-			duration: performance.now() - startTime,
-		};
+		}
+		return { ...stats, totalBytes: transferredBytes, duration, stopReason };
 	} catch (error) {
 		progressBar.stop();
 		throw new SpeedTestError(

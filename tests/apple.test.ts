@@ -34,13 +34,20 @@ const server = Bun.serve({
 			return new Response(null, { status: 200 });
 		if (path === "/api/v1/gm/large") {
 			let timer: ReturnType<typeof setInterval>;
+			const startedAt = performance.now();
+			let sent = 0;
 			return new Response(
 				new ReadableStream<Uint8Array>({
 					start(controller) {
-						timer = setInterval(
-							() => controller.enqueue(new Uint8Array(16384)),
-							5,
-						);
+						timer = setInterval(() => {
+							const expected =
+								Math.floor((performance.now() - startedAt) / 5) * 16384;
+							const size = expected - sent;
+							if (size > 0) {
+								sent += size;
+								controller.enqueue(new Uint8Array(size));
+							}
+						}, 5);
 					},
 					cancel() {
 						clearInterval(timer);
@@ -107,7 +114,8 @@ test("continuous Apple download stops at its deadline and keeps transferred byte
 test("Apple upload sends raw POST bodies and counts payload bytes", async () => {
 	const result = await measureUpload(origin, { ...config, maxTestTime: 1000 });
 	expect(result.avg).toBeGreaterThan(0);
-	expect(result.totalBytes).toBe(4 * 1024 * 1024);
+	expect(result.totalBytes).toBeGreaterThanOrEqual(1024 * 1024);
+	expect(result.totalBytes % (1024 * 1024)).toBe(0);
 	const uploads = requests.filter((r) => r.path.endsWith("/slurp"));
 	expect(uploads.length).toBeGreaterThan(1);
 	expect(
@@ -165,7 +173,7 @@ test("Apple CLI completes a test and displays both transfer results", async () =
 			"--thread",
 			"1",
 			"--timeout",
-			"5",
+			"8",
 		],
 		{ stdout: "pipe", stderr: "pipe" },
 	);
@@ -180,4 +188,5 @@ test("Apple CLI completes a test and displays both transfer results", async () =
 	expect(stdout).toContain("Download:");
 	expect(stdout).toContain("Upload:");
 	expect(stdout).toContain("Flags: Apple");
+	expect(stdout).toContain("stable, stopped early");
 }, 20000);

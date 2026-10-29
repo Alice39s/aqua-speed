@@ -102,7 +102,7 @@ function formatLatencyResult(result: LatencyResult): string {
 }
 
 function formatSpeedResult(result: SpeedStats): string {
-	return `${(result.avg / 1000000).toFixed(2)} Mbps`;
+	return `${(result.avg / 1000000).toFixed(2)} Mbps${result.stopReason === "stable" ? " (stable, stopped early)" : ""}`;
 }
 
 export async function runSpeedTest(

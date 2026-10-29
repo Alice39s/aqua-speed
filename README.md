@@ -260,3 +260,9 @@ Please ensure:
 [^1]: Recommended to specify a file of at least 10MB.
 
 Apple tests use the CDN capacity endpoints for download, upload, and idle latency. `--server` can select another server exposing `/api/v1/gm/{small,large,slurp}`. These results use Aqua Speed metrics; they do not include the macOS `networkQuality` responsiveness (RPM) calculation.
+
+### Adaptive completion
+
+`--timeout` is the maximum duration of each transfer phase. Downloads and uploads can finish earlier once aggregate throughput stabilizes across all requested connections. With the default settings, the test runs for at least five seconds, skips the first second of startup, then checks a rolling two-second window for low variation and a flat linear trend. The window must stay stable for another 600 ms. Ramps, stalls, and persistent oscillation keep the test running up to the deadline.
+
+The CLI marks an early result as `stable, stopped early`. Active requests are cancelled and settled before the next phase starts; byte totals retain completed transfer progress. Connection count stays fixed at `--thread` during the measurement. Library callers can tune `minTestTime`, `minSamples`, and `targetError`; `SpeedStats.stopReason` is `stable` or `timeout`.

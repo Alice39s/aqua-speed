@@ -125,6 +125,8 @@ export interface SpeedStats {
 	totalBytes: number;
 	/** Total duration of the test in milliseconds */
 	duration: number;
+	/** Why the transfer phase ended; skipped phases have no reason. */
+	stopReason?: "stable" | "timeout";
 	/** Number of samples taken during the test */
 	samples: number[];
 }
