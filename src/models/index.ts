@@ -130,7 +130,11 @@ async function measureSpeed(
 	}
 
 	// Merge the default test options with the user-defined options
-	const mergedConfig = { ...DEFAULT_TEST_OPTIONS, ...config };
+	const mergedConfig = {
+		...DEFAULT_TEST_OPTIONS,
+		...config,
+		thread: config.thread ?? DEFAULT_TEST_OPTIONS.thread,
+	};
 	const {
 		minTestTime,
 		maxTestTime,

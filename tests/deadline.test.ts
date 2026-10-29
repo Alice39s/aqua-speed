@@ -74,3 +74,24 @@ test("upload deadline returns counted bytes while a later POST is pending", asyn
 		await server.stop(true);
 	}
 }, 2000);
+
+test("undefined library concurrency retains the default worker count", async () => {
+	const server = Bun.serve({
+		port: 0,
+		fetch: () => new Response(new Uint8Array(65536)),
+	});
+	try {
+		const result = await measureDownload(server.url.origin, {
+			type: "SingleFile",
+			thread: undefined,
+			minTestTime: 0,
+			maxTestTime: 500,
+			minSamples: 1,
+			targetError: 1,
+		});
+		expect(result.totalBytes).toBeGreaterThan(0);
+		expect(result.avg).toBeGreaterThan(0);
+	} finally {
+		await server.stop(true);
+	}
+});
