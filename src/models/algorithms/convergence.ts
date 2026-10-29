@@ -97,7 +97,6 @@ export function createConvergenceTracker(
 		const variation = stats.stdDev / stats.avg;
 		const spread = (stats.max - stats.min) / stats.avg;
 		const stable =
-			stats.error <= config.targetError &&
 			variation <= config.targetError &&
 			drift <= config.targetError &&
 			spread <= config.targetError * 4;
