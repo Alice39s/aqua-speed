@@ -1,12 +1,15 @@
 import type { LatencyStats, TestType } from "../types";
 import { msToMicros, calculateStats, sleep, usToMs } from "../utils/common";
-import Logger from '../utils/logger';
-import { promise as ping } from 'ping';
-import { type Dispatcher, fetch, type HeadersInit } from 'undici';
-import WebSocket from 'ws';
-import { DEFAULT_FETCH_OPTIONS, DEFAULT_FETCH_HEADERS_OOKLA } from '../constant/fetch';
-import { isDebugMode } from '../utils/common';
-import net from 'node:net';
+import Logger from "../utils/logger";
+import { promise as ping } from "ping";
+import { type Dispatcher, fetch, type HeadersInit } from "undici";
+import WebSocket from "ws";
+import {
+	DEFAULT_FETCH_OPTIONS,
+	DEFAULT_FETCH_HEADERS_OOKLA,
+} from "../constant/fetch";
+import { isDebugMode } from "../utils/common";
+import net from "node:net";
 
 const logger = new Logger();
 
@@ -17,38 +20,38 @@ const logger = new Logger();
  * @returns {Promise<number>} Average latency in microseconds, or -1 if measurement fails
  */
 async function measureICMPLatency(host: string, count = 3): Promise<number> {
-    if (!host) {
-        logger.error('[measureICMPLatency] Invalid host');
-        return -1;
-    }
+	if (!host) {
+		logger.error("[measureICMPLatency] Invalid host");
+		return -1;
+	}
 
-    try {
-        const hostname = new URL(host).hostname;
-        let totalLatency = 0;
-        let successCount = 0;
+	try {
+		const hostname = new URL(host).hostname;
+		let totalLatency = 0;
+		let successCount = 0;
 
-        const pingPromises = Array.from({ length: count }, async () => {
-            try {
-                const result = await ping.probe(hostname, {
-                    timeout: 2,
-                    min_reply: 1
-                });
-                if (result.alive && result.time) {
-                    totalLatency += msToMicros(Number(result.time));
-                    successCount++;
-                }
-            } catch (err) {
-                logger.error(`[measureICMPLatency] Ping error: ${err}`);
-            }
-        });
+		const pingPromises = Array.from({ length: count }, async () => {
+			try {
+				const result = await ping.probe(hostname, {
+					timeout: 2,
+					min_reply: 1,
+				});
+				if (result.alive && result.time) {
+					totalLatency += msToMicros(Number(result.time));
+					successCount++;
+				}
+			} catch (err) {
+				logger.error(`[measureICMPLatency] Ping error: ${err}`);
+			}
+		});
 
-        await Promise.all(pingPromises);
+		await Promise.all(pingPromises);
 
-        return successCount === 0 ? -1 : Math.round(totalLatency / successCount);
-    } catch (error) {
-        logger.error(`[measureICMPLatency] Invalid URL format: ${host}`);
-        return -1;
-    }
+		return successCount === 0 ? -1 : Math.round(totalLatency / successCount);
+	} catch (error) {
+		logger.error(`[measureICMPLatency] Invalid URL format: ${host}`);
+		return -1;
+	}
 }
 
 /**
@@ -59,57 +62,61 @@ async function measureICMPLatency(host: string, count = 3): Promise<number> {
  * @returns {Promise<number>} Average latency in microseconds, or -1 if measurement fails.
  */
 async function measureTCPLatency(host: string, samples = 3): Promise<number> {
-    if (!host) {
-        logger.error('[measureTCPLatency] Invalid host');
-        return -1;
-    }
+	if (!host) {
+		logger.error("[measureTCPLatency] Invalid host");
+		return -1;
+	}
 
-    let url: URL;
-    try {
-        url = new URL(host);
-    } catch (error) {
-        logger.error(`[measureTCPLatency] Invalid URL format: ${host}`);
-        return -1;
-    }
+	let url: URL;
+	try {
+		url = new URL(host);
+	} catch (error) {
+		logger.error(`[measureTCPLatency] Invalid URL format: ${host}`);
+		return -1;
+	}
 
-    const delays: number[] = [];
+	const delays: number[] = [];
 
-    const tcpMeasurementPromises = Array.from({ length: samples }, async () => {
-        return new Promise<number>((resolve) => {
-            const start = process.hrtime.bigint();
-            const socket = new net.Socket();
+	const tcpMeasurementPromises = Array.from({ length: samples }, async () => {
+		return new Promise<number>((resolve) => {
+			const start = process.hrtime.bigint();
+			const socket = new net.Socket();
 
-            const timeout = setTimeout(() => {
-                socket.destroy();
-                logger.warn(`[measureTCPLatency] TCP connection to ${url.hostname}:${url.port || 80} timed out`);
-                resolve(-1);
-            }, 2000); // 2 seconds timeout
+			const timeout = setTimeout(() => {
+				socket.destroy();
+				logger.warn(
+					`[measureTCPLatency] TCP connection to ${url.hostname}:${url.port || 80} timed out`,
+				);
+				resolve(-1);
+			}, 2000); // 2 seconds timeout
 
-            socket.connect(Number(url.port || 80), url.hostname, () => {
-                clearTimeout(timeout);
-                const end = process.hrtime.bigint();
-                const latency = Number(end - start) / 1000; // Convert nanoseconds to microseconds
-                socket.end();
-                resolve(latency);
-            });
+			socket.connect(Number(url.port || 80), url.hostname, () => {
+				clearTimeout(timeout);
+				const end = process.hrtime.bigint();
+				const latency = Number(end - start) / 1000; // Convert nanoseconds to microseconds
+				socket.end();
+				resolve(latency);
+			});
 
-            socket.on('error', (err) => {
-                clearTimeout(timeout);
-                logger.error(`[measureTCPLatency] TCP connection error: ${err.message}`);
-                resolve(-1);
-            });
-        });
-    });
+			socket.on("error", (err) => {
+				clearTimeout(timeout);
+				logger.error(
+					`[measureTCPLatency] TCP connection error: ${err.message}`,
+				);
+				resolve(-1);
+			});
+		});
+	});
 
-    const results = await Promise.all(tcpMeasurementPromises);
-    for (const latency of results) {
-        if (latency !== -1) delays.push(latency);
-    }
+	const results = await Promise.all(tcpMeasurementPromises);
+	for (const latency of results) {
+		if (latency !== -1) delays.push(latency);
+	}
 
-    if (delays.length === 0) return -1;
+	if (delays.length === 0) return -1;
 
-    const avgDelay = delays.reduce((a, b) => a + b, 0) / delays.length;
-    return Math.round(avgDelay);
+	const avgDelay = delays.reduce((a, b) => a + b, 0) / delays.length;
+	return Math.round(avgDelay);
 }
 
 /**
@@ -120,36 +127,39 @@ async function measureTCPLatency(host: string, samples = 3): Promise<number> {
  * - Returns -1 for general errors.
  * - Returns -2 to signal HTTP/1.1 fallback.
  */
-async function measureHTTPLatencyH2(url: string, options: Dispatcher.RequestOptions): Promise<number> {
-    const controller = new AbortController();
-    const start = process.hrtime.bigint();
+async function measureHTTPLatencyH2(
+	url: string,
+	options: Dispatcher.RequestOptions,
+): Promise<number> {
+	const controller = new AbortController();
+	const start = process.hrtime.bigint();
 
-    try {
-        const response = await fetch(url, {
-            ...options,
-            signal: controller.signal,
-            // @ts-ignore: undici supports 'httpVersion'
-            httpVersion: '2.0'
-        });
+	try {
+		const response = await fetch(url, {
+			...options,
+			signal: controller.signal,
+			// @ts-ignore: undici supports 'httpVersion'
+			httpVersion: "2.0",
+		});
 
-        controller.abort();
-        const end = process.hrtime.bigint();
-        const latency = Number(end - start) / 1000; // Convert to ms
-        return response.ok ? Math.round(latency) : -1;
-    } catch (error: unknown) {
-        if (error instanceof Error && error.name === 'UnsupportedProtocolError') {
-            return -2; // Try fallback to HTTP/1.1
-        }
-        if (error instanceof Error && error.name === 'AbortError') {
-            const end = process.hrtime.bigint();
-            const latency = Number(end - start) / 1000;
-            return Math.round(latency);
-        }
-        if (isDebugMode()) {
-            logger.error(`[measureHTTPLatencyH2] Error: ${error}`);
-        }
-        return -1;
-    }
+		controller.abort();
+		const end = process.hrtime.bigint();
+		const latency = Number(end - start) / 1000; // Convert to ms
+		return response.ok ? Math.round(latency) : -1;
+	} catch (error: unknown) {
+		if (error instanceof Error && error.name === "UnsupportedProtocolError") {
+			return -2; // Try fallback to HTTP/1.1
+		}
+		if (error instanceof Error && error.name === "AbortError") {
+			const end = process.hrtime.bigint();
+			const latency = Number(end - start) / 1000;
+			return Math.round(latency);
+		}
+		if (isDebugMode()) {
+			logger.error(`[measureHTTPLatencyH2] Error: ${error}`);
+		}
+		return -1;
+	}
 }
 
 /**
@@ -158,31 +168,31 @@ async function measureHTTPLatencyH2(url: string, options: Dispatcher.RequestOpti
  * @returns {Promise<number>} Latency in microseconds, or -1 if connection fails
  */
 async function measureWebSocketLatency(url: URL): Promise<number> {
-    return new Promise((resolve) => {
-        const start = process.hrtime.bigint();
-        const ws = new WebSocket(url.href.replace('http', 'ws'), {
-            headers: DEFAULT_FETCH_HEADERS_OOKLA
-        });
+	return new Promise((resolve) => {
+		const start = process.hrtime.bigint();
+		const ws = new WebSocket(url.href.replace("http", "ws"), {
+			headers: DEFAULT_FETCH_HEADERS_OOKLA,
+		});
 
-        const timeout = setTimeout(() => {
-            ws.terminate();
-            resolve(-1);
-        }, 5000); // 5 seconds timeout
+		const timeout = setTimeout(() => {
+			ws.terminate();
+			resolve(-1);
+		}, 5000); // 5 seconds timeout
 
-        ws.on('open', () => {
-            clearTimeout(timeout);
-            const end = process.hrtime.bigint();
-            const latency = Number(end - start) / 1000; // Convert to ms
-            ws.close();
-            resolve(Math.round(latency));
-        });
+		ws.on("open", () => {
+			clearTimeout(timeout);
+			const end = process.hrtime.bigint();
+			const latency = Number(end - start) / 1000; // Convert to ms
+			ws.close();
+			resolve(Math.round(latency));
+		});
 
-        ws.on('error', () => {
-            clearTimeout(timeout);
-            ws.terminate();
-            resolve(-1);
-        });
-    });
+		ws.on("error", () => {
+			clearTimeout(timeout);
+			ws.terminate();
+			resolve(-1);
+		});
+	});
 }
 
 /**
@@ -192,84 +202,86 @@ async function measureWebSocketLatency(url: URL): Promise<number> {
  * @returns {Promise<number>} Latency in microseconds, or -1 if measurement fails.
  */
 async function measureHTTPLatency(url: URL, type: TestType): Promise<number> {
-    if (!url || !(url instanceof URL)) {
-        logger.error('[measureHTTPLatency] Invalid URL object');
-        return -1;
-    }
+	if (!url || !(url instanceof URL)) {
+		logger.error("[measureHTTPLatency] Invalid URL object");
+		return -1;
+	}
 
-    const commonOptions: Dispatcher.RequestOptions = {
-        method: 'GET',
-        headers: {
-            ...DEFAULT_FETCH_OPTIONS.headers,
-            'Referer': url.origin,
-            'Origin': url.origin,
-        },
-        path: url.pathname,
-    };
+	const commonOptions: Dispatcher.RequestOptions = {
+		method: "GET",
+		headers: {
+			...DEFAULT_FETCH_OPTIONS.headers,
+			Referer: url.origin,
+			Origin: url.origin,
+		},
+		path: url.pathname,
+	};
 
-    let testUrl: string;
-    let options: Dispatcher.RequestOptions;
+	let testUrl: string;
+	let options: Dispatcher.RequestOptions;
 
-    switch (type) {
-        case 'Cloudflare':
-            testUrl = `${url.origin}/cdn-cgi/trace`;
-            options = {
-                ...commonOptions,
-                path: '/cdn-cgi/trace',
-            };
-            break;
-        case 'LibreSpeed':
-            testUrl = url.href;
-            options = {
-                ...commonOptions,
-                path: url.pathname,
-            };
-            break;
-        case 'Ookla':
-            return measureWebSocketLatency(url);
-        default:
-            testUrl = url.href;
-            options = {
-                ...commonOptions,
-                path: url.pathname,
-            };
-    }
+	switch (type) {
+		case "Cloudflare":
+			testUrl = `${url.origin}/cdn-cgi/trace`;
+			options = {
+				...commonOptions,
+				path: "/cdn-cgi/trace",
+			};
+			break;
+		case "LibreSpeed":
+			testUrl = url.href;
+			options = {
+				...commonOptions,
+				path: url.pathname,
+			};
+			break;
+		case "Ookla":
+			return measureWebSocketLatency(url);
+		default:
+			testUrl = url.href;
+			options = {
+				...commonOptions,
+				path: url.pathname,
+			};
+	}
 
-    // Try HTTP/2 latency measurement
-    const h2Result = await measureHTTPLatencyH2(testUrl, options);
-    if (h2Result !== -2) {
-        logger.debug(`[measureHTTPLatency] HTTP/2 latency: ${h2Result / 1000} ms`);
-        return h2Result;
-    }
+	// Try HTTP/2 latency measurement
+	const h2Result = await measureHTTPLatencyH2(testUrl, options);
+	if (h2Result !== -2) {
+		logger.debug(`[measureHTTPLatency] HTTP/2 latency: ${h2Result / 1000} ms`);
+		return h2Result;
+	}
 
-    // If HTTP/2 is not supported, fallback to HTTP/1.1
-    logger.debug('[measureHTTPLatency] HTTP/2 is not supported, falling back to HTTP/1.1');
-    const controller = new AbortController();
-    const start = process.hrtime.bigint();
+	// If HTTP/2 is not supported, fallback to HTTP/1.1
+	logger.debug(
+		"[measureHTTPLatency] HTTP/2 is not supported, falling back to HTTP/1.1",
+	);
+	const controller = new AbortController();
+	const start = process.hrtime.bigint();
 
-    try {
-        const response = await fetch(testUrl, {
-            ...options,
-            signal: controller.signal,
-            // @ts-ignore: undici supports 'httpVersion'
-            httpVersion: '1.1',
-        });
+	try {
+		const response = await fetch(testUrl, {
+			...options,
+			signal: controller.signal,
+			// @ts-ignore: undici supports 'httpVersion'
+			httpVersion: "1.1",
+		});
 
-        controller.abort();
-        const end = process.hrtime.bigint();
-        const latency = Number(end - start) / 1000; // Convert to ms
-        return response.ok ? Math.round(latency) : -1;
-    } catch (err: unknown) {
-        if (isDebugMode()) {
-            logger.error(`[measureHTTPLatency] Error: ${err}`);
-        }
-        if (err instanceof Error && err.name === 'AbortError') {
-            const end = process.hrtime.bigint();
-            const latency = Number(end - start) / 1000;
-            return Math.round(latency);
-        }
-        return -1;
-    }
+		controller.abort();
+		const end = process.hrtime.bigint();
+		const latency = Number(end - start) / 1000; // Convert to ms
+		return response.ok ? Math.round(latency) : -1;
+	} catch (err: unknown) {
+		if (isDebugMode()) {
+			logger.error(`[measureHTTPLatency] Error: ${err}`);
+		}
+		if (err instanceof Error && err.name === "AbortError") {
+			const end = process.hrtime.bigint();
+			const latency = Number(end - start) / 1000;
+			return Math.round(latency);
+		}
+		return -1;
+	}
 }
 
 /**
@@ -281,65 +293,68 @@ async function measureHTTPLatency(url: URL, type: TestType): Promise<number> {
  * Latency statistics for ICMP, TCP, and HTTP protocols
  * @throws {Error} If the test endpoint is invalid or the test fails
  */
-export async function measureLatency(testEndpoint: string, type: TestType): Promise<{
-    icmp: LatencyStats;
-    tcp: LatencyStats;
-    http: LatencyStats;
+export async function measureLatency(
+	testEndpoint: string,
+	type: TestType,
+): Promise<{
+	icmp: LatencyStats;
+	tcp: LatencyStats;
+	http: LatencyStats;
 }> {
-    if (!testEndpoint) {
-        throw new Error('Test endpoint is required');
-    }
+	if (!testEndpoint) {
+		throw new Error("Test endpoint is required");
+	}
 
-    let url: URL;
-    try {
-        url = new URL(testEndpoint);
-    } catch (error) {
-        throw new Error(`Invalid URL format: ${testEndpoint}`);
-    }
+	let url: URL;
+	try {
+		url = new URL(testEndpoint);
+	} catch (error) {
+		throw new Error(`Invalid URL format: ${testEndpoint}`);
+	}
 
-    const host = url.origin;
-    const rounds = 5;
-    const icmpSamples: number[] = [];
-    const tcpSamples: number[] = [];
-    const httpSamples: number[] = [];
+	const host = url.origin;
+	const rounds = 5;
+	const icmpSamples: number[] = [];
+	const tcpSamples: number[] = [];
+	const httpSamples: number[] = [];
 
-    const latencySpinner = logger.create('latency', 'Measuring latency...');
-    const updateInterval = setInterval(() => {
-        const icmpStats = calculateStats(icmpSamples);
-        const tcpStats = calculateStats(tcpSamples);
-        const httpStats = calculateStats(httpSamples);
+	const latencySpinner = logger.create("latency", "Measuring latency...");
+	const updateInterval = setInterval(() => {
+		const icmpStats = calculateStats(icmpSamples);
+		const tcpStats = calculateStats(tcpSamples);
+		const httpStats = calculateStats(httpSamples);
 
-        latencySpinner.text = `Testing latency... ICMP: ${usToMs(icmpStats.avg).toFixed(2)}ms, TCP: ${usToMs(tcpStats.avg).toFixed(2)}ms, HTTP: ${usToMs(httpStats.avg).toFixed(2)}ms`;
-    }, 1000);
+		latencySpinner.text = `Testing latency... ICMP: ${usToMs(icmpStats.avg).toFixed(2)}ms, TCP: ${usToMs(tcpStats.avg).toFixed(2)}ms, HTTP: ${usToMs(httpStats.avg).toFixed(2)}ms`;
+	}, 1000);
 
-    try {
-        const measurementPromises = Array.from({ length: rounds }, async (_, i) => {
-            if (i > 0) await sleep(500); // Wait 500ms between rounds
+	try {
+		const measurementPromises = Array.from({ length: rounds }, async (_, i) => {
+			if (i > 0) await sleep(500); // Wait 500ms between rounds
 
-            const [icmp, tcp, http] = await Promise.all([
-                measureICMPLatency(host),
-                measureTCPLatency(host),
-                measureHTTPLatency(url, type)
-            ]);
+			const [icmp, tcp, http] = await Promise.all([
+				measureICMPLatency(host),
+				measureTCPLatency(host),
+				measureHTTPLatency(url, type),
+			]);
 
-            icmpSamples.push(icmp);
-            tcpSamples.push(tcp);
-            httpSamples.push(http);
-        });
+			icmpSamples.push(icmp);
+			tcpSamples.push(tcp);
+			httpSamples.push(http);
+		});
 
-        await Promise.all(measurementPromises);
-    } catch (error) {
-        latencySpinner.fail('Latency test failed');
-        logger.error(`[measureLatency] Error: ${error}`);
-        throw error;
-    } finally {
-        clearInterval(updateInterval);
-        latencySpinner.succeed('Latency measurement completed');
-    }
+		await Promise.all(measurementPromises);
+	} catch (error) {
+		latencySpinner.fail("Latency test failed");
+		logger.error(`[measureLatency] Error: ${error}`);
+		throw error;
+	} finally {
+		clearInterval(updateInterval);
+		latencySpinner.succeed("Latency measurement completed");
+	}
 
-    return {
-        icmp: calculateStats(icmpSamples),
-        tcp: calculateStats(tcpSamples),
-        http: calculateStats(httpSamples)
-    };
+	return {
+		icmp: calculateStats(icmpSamples),
+		tcp: calculateStats(tcpSamples),
+		http: calculateStats(httpSamples),
+	};
 }

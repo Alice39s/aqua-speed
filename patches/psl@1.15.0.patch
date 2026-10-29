@@ -1,0 +1,12 @@
+diff --git a/package.json b/package.json
+index e0de4730ce5c68e5874e63e0a4f778848e8c0770..2eb036df138c6b6dafa11592d104a806b20a1eaa 100644
+--- a/package.json
++++ b/package.json
+@@ -10,6 +10,7 @@
+   "main": "./dist/psl.cjs",
+   "exports": {
+     ".": {
++      "types": "./types/index.d.ts",
+       "import": "./dist/psl.mjs",
+       "require": "./dist/psl.cjs"
+     }

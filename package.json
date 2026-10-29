@@ -9,8 +9,11 @@
         "start": "bun run src/cli.ts",
         "dev": "bun --watch src/cli.ts",
         "test": "bun test",
-        "lint": "biome check --write",
-        "format": "biome format --write"
+        "lint": "biome lint src tests",
+        "format": "biome format --write",
+        "typecheck": "tsc --noEmit",
+        "format:check": "biome format src tests",
+        "check": "bun run lint && bun run typecheck && bun run format:check && bun test && bun run build"
     },
     "author": "Alice39s",
     "license": "GPL-3.0-only",
@@ -27,7 +30,8 @@
         "@types/bogon": "1.0.2",
         "@types/bun": "1.4.4",
         "@types/cli-progress": "3.11.6",
-        "@types/user-agents": "1.0.4"
+        "@types/user-agents": "1.0.4",
+        "@types/ws": "8.18.2"
     },
     "peerDependencies": {
         "typescript": "^5.0.0"
@@ -65,5 +69,8 @@
     "engines": {
         "bun": ">=1.4.4"
     },
-    "packageManager": "bun@1.4.4"
+    "packageManager": "bun@1.4.4",
+    "patchedDependencies": {
+        "psl@1.15.0": "patches/psl@1.15.0.patch"
+    }
 }

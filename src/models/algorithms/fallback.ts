@@ -1,5 +1,5 @@
-import type { TestConfigBase, TestType } from '@/types';
-import { SpeedTestError } from '@/models/index';
+import type { TestConfigBase, TestType } from "@/types";
+import { SpeedTestError } from "@/models/index";
 
 /**
  * Attempts to perform a speed test with a given URL
@@ -12,16 +12,31 @@ import { SpeedTestError } from '@/models/index';
  * @returns {Promise<number>} Promise resolving to the speed measurement
  */
 export async function attemptSpeedTest(
-    url: string,
-    referrer: string,
-    workerFn: (url: string, referrer: string, onProgress: (speed: number, bytesTransferred: number) => void, signal: AbortSignal, testType: TestType) => Promise<number>,
-    config: TestConfigBase,
-    signal: AbortSignal,
-    onProgress: (speed: number, bytesTransferred: number) => void
+	url: string,
+	referrer: string,
+	workerFn: (
+		url: string,
+		referrer: string,
+		onProgress: (speed: number, bytesTransferred: number) => void,
+		signal: AbortSignal,
+		testType: TestType,
+	) => Promise<number>,
+	config: TestConfigBase,
+	signal: AbortSignal,
+	onProgress: (speed: number, bytesTransferred: number) => void,
 ): Promise<number> {
-    try {
-        return await workerFn(url, referrer, onProgress, signal, config.type || 'SingleFile');
-    } catch (error) {
-        throw new SpeedTestError(`Speed test failed for URL ${url}`, error as Error);
-    }
+	try {
+		return await workerFn(
+			url,
+			referrer,
+			onProgress,
+			signal,
+			config.type || "SingleFile",
+		);
+	} catch (error) {
+		throw new SpeedTestError(
+			`Speed test failed for URL ${url}`,
+			error as Error,
+		);
+	}
 }
