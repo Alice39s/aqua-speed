@@ -3,7 +3,11 @@ import { measureDownload, measureUpload } from "../src/models";
 import { downloadTestWorker } from "../src/models/workers/download";
 import { testUploadWorker } from "../src/models/workers/upload";
 import { checkUrlAvailability } from "../src/models/workers/check";
-import { calculateStats, maskIpAddress } from "../src/utils/common";
+import {
+	calculateStats,
+	maskIpAddress,
+	getDomainName,
+} from "../src/utils/common";
 import { formatSpeed, formatLatency } from "../src/utils/format";
 
 const requests: { path: string; method: string; size: number }[] = [];
@@ -87,5 +91,17 @@ test("statistics, formatting and address masking", () => {
 	expect(maskIpAddress("192.0.2.45", false)).toBe("192.0.2.0/24");
 	expect(maskIpAddress("2001:db8:1234:abcd::1", false)).toBe(
 		"2001:db8:1234::/48",
+	);
+});
+
+test("server labels preserve full hostnames and distinguish subdomains", () => {
+	expect(getDomainName("https://speed.cloudflare.com/path")).toBe(
+		"speed.cloudflare.com",
+	);
+	expect(getDomainName("https://fsn1-speed.example.com/")).toBe(
+		"fsn1-speed.example.com",
+	);
+	expect(getDomainName("https://nbg1-speed.example.com/")).toBe(
+		"nbg1-speed.example.com",
 	);
 });
