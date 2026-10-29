@@ -1,3 +1,5 @@
+import { APPLE_FETCH_HEADERS, getAppleEndpoint } from "../providers/apple";
+import type { TestType } from "../../types";
 import { fetch } from "undici";
 import { DEFAULT_FETCH_OPTIONS } from "../../constant/fetch";
 import Logger from "../../utils/logger";
@@ -14,6 +16,7 @@ export async function checkUrlAvailability(
 	url: string,
 	referrer: string,
 	testType: "upload" | "download",
+	provider?: TestType,
 ): Promise<boolean> {
 	try {
 		logger.debug(`[checkUrlAvailability] Checking URL: ${url}`);
@@ -23,12 +26,15 @@ export async function checkUrlAvailability(
 		const controller = new AbortController();
 		const headers: Record<string, string> = {
 			...(DEFAULT_FETCH_OPTIONS.headers as Record<string, string>),
+			...(provider === "Apple" ? APPLE_FETCH_HEADERS : {}),
 			Accept: "*/*",
 			"Accept-Language": "zh-CN,zh;q=0.9",
 			"Cache-Control": "no-cache",
 			"Content-Type":
 				testType === "upload"
-					? "application/x-www-form-urlencoded"
+					? provider === "Apple"
+						? "application/octet-stream"
+						: "application/x-www-form-urlencoded"
 					: "text/plain",
 		};
 
@@ -36,7 +42,11 @@ export async function checkUrlAvailability(
 			`[checkUrlAvailability] Request headers: ${JSON.stringify(headers)}`,
 		);
 
-		const response = await fetch(url, {
+		const probeUrl =
+			provider === "Apple" && testType === "download"
+				? getAppleEndpoint(url, "latency")
+				: url;
+		const response = await fetch(probeUrl, {
 			...DEFAULT_FETCH_OPTIONS,
 			method: testType === "upload" ? "POST" : "GET",
 			headers,
@@ -53,11 +63,6 @@ export async function checkUrlAvailability(
 		logger.debug(`[checkUrlAvailability] URL check result: ${result}`);
 		return result;
 	} catch (error) {
-		// Ignore AbortError as it's expected
-		if (error instanceof Error && error.name === "AbortError") {
-			logger.error("[checkUrlAvailability] Request aborted as expected");
-			return true;
-		}
 		logger.error(
 			`[checkUrlAvailability] Error checking URL: ${error instanceof Error ? error.message : "Unknown error"}`,
 		);

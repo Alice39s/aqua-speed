@@ -44,15 +44,16 @@
 
 ## :star: 支持的测速服务端
 
-| 测速服务端        | 上传测速               | 下载测速               | 延迟测试               | 备注                 |
-| ----------------- | ---------------------- | ---------------------- | ---------------------- | -------------------- |
-| Speedtest.net     | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | 开发中、高优先级     |
-| LibreSpeed        | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | 主要用于高校测速站   |
-| Cloudflare Speed  | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | speed.cloudflare.com |
-| 单文件测速        | :x:                    | :white_check_mark:     | :white_check_mark:     | 不支持上传测速       |
-| Looking Glass     | :large_orange_diamond: | :white_check_mark:     | :white_check_mark:     | 开发中               |
-| 全球网测 (信通院) | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | 开发中               |
-| Speedtest.cn      | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | 开发中               |
+| 测速服务端        | 上传测速               | 下载测速               | 延迟测试               | 备注                  |
+| ----------------- | ---------------------- | ---------------------- | ---------------------- | --------------------- |
+| Speedtest.net     | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | 开发中、高优先级      |
+| LibreSpeed        | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | 主要用于高校测速站    |
+| Cloudflare Speed  | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | speed.cloudflare.com  |
+| Apple             | :white_check_mark:     | :white_check_mark:     | :white_check_mark:     | mensura.cdn-apple.com |
+| 单文件测速        | :x:                    | :white_check_mark:     | :white_check_mark:     | 不支持上传测速        |
+| Looking Glass     | :large_orange_diamond: | :white_check_mark:     | :white_check_mark:     | 开发中                |
+| 全球网测 (信通院) | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | 开发中                |
+| Speedtest.cn      | :large_orange_diamond: | :large_orange_diamond: | :large_orange_diamond: | 开发中                |
 
 # :star2: 演示
 
@@ -146,7 +147,7 @@ Options:
   -t, --thread <number>  并发连接数
   --timeout <seconds>    每个下载／上传阶段的最长秒数（默认 30）
   --debug               调试模式
-  --type <type>         测试类型 (SingleFile|LibreSpeed|Cloudflare)
+  --type <type>         测试类型 (SingleFile|LibreSpeed|Cloudflare|Apple)
 ```
 
 ## :mag: 示例输出
@@ -254,3 +255,5 @@ bun run check
 - 所有贡献者
 
 [^1]: 自定义文件 URL 暂不支持测试上传，仅支持下载、推荐指定 10MB 以上的文件。
+
+Apple 测速：`aqua-speed --type Apple`。支持下载、上传和空闲延迟测量，可用 `--server` 指定提供 `/api/v1/gm/{small,large,slurp}` 接口的服务。结果使用 Aqua Speed 的指标，不包含 macOS `networkQuality` 的响应性（RPM）计算。

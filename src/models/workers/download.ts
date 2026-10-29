@@ -1,3 +1,4 @@
+import { APPLE_FETCH_HEADERS } from "../providers/apple";
 import { fetch, type HeadersInit } from "undici";
 import { DEFAULT_FETCH_HEADERS } from "@/constant/fetch";
 import Logger from "@/utils/logger";
@@ -20,7 +21,7 @@ export async function downloadTestWorker(
 	refer?: string,
 	onProgress?: (speed: number, bytesTransferred: number) => void,
 	signal?: AbortSignal,
-	_testType?: TestType,
+	testType?: TestType,
 ): Promise<number> {
 	const startTime = performance.now();
 	let totalBytes = 0;
@@ -85,7 +86,9 @@ export async function downloadTestWorker(
 					method: "GET",
 					signal,
 					headers: {
-						...DEFAULT_FETCH_HEADERS,
+						...(testType === "Apple"
+							? APPLE_FETCH_HEADERS
+							: DEFAULT_FETCH_HEADERS),
 						Referer: referer,
 						Origin: referer,
 						Path: url.pathname,
