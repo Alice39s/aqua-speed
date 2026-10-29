@@ -41,6 +41,8 @@ export interface TestConfig {
 	icmp?: boolean; // --no-icmp
 	tcp?: boolean; // --no-tcp
 	http?: boolean; // --no-http
+	doh?: boolean;
+	dohServers?: string[];
 }
 
 /**

@@ -131,10 +131,10 @@ aqua-speed
 aqua-speed --type Apple
 
 # Test against LibreSpeed server
-aqua-speed --type LibreSpeed
+aqua-speed --type LibreSpeed --server https://speed.example.com
 
 # Test with custom file URL
-aqua-speed -s https://example.com/testfile.dat
+aqua-speed --type SingleFile -s https://example.com/testfile.dat
 ```
 
 ### Advanced Options
@@ -151,6 +151,8 @@ Options:
   --ipinfo-token <token> IPInfo token (env: IPINFO_TOKEN or IPINFO_API_KEY)
   --no-geoip            Skip IP discovery and location lookups
   --debug               Debug mode
+  --doh-server <url>     JSON DoH endpoint; repeat to set fallback order
+  --no-doh              Use system DNS only for metadata lookups
   --type <type>         Test type (SingleFile|LibreSpeed|Cloudflare|Apple)
 ```
 
@@ -177,6 +179,17 @@ Test Results:
     Test Information:
         Server: speed.cloudflare.com
         Time: 2024/12/25 12:00:00
+```
+
+### Custom servers and DNS
+
+Cloudflare and Apple have built-in server defaults. LibreSpeed, SingleFile and Ookla require `--server`; custom URLs must use HTTP or HTTPS. Invalid configuration stops before network activity. A custom endpoint is also used as the display name unless `--sn` is supplied.
+
+Server-IP metadata lookup tries system DNS first, then Cloudflare and Alibaba JSON DoH endpoints. Set repeatable `--doh-server` arguments or comma-separated `AQUA_SPEED_DOH_SERVERS` to replace that fallback list. Arguments take precedence. `--no-doh` or an empty environment value uses system DNS only. Each DNS request and DoH body read has a two-second deadline. DoH URLs require HTTPS; HTTP is accepted for loopback services. IP literals bypass DNS. These options affect metadata lookup; transfer sockets use the runtime's resolver.
+
+```bash
+aqua-speed --type LibreSpeed --server https://speed.example.com --no-doh
+aqua-speed --doh-server https://dns.example.com/resolve --doh-server https://backup.example.com/resolve
 ```
 
 ## :bug: Troubleshooting
