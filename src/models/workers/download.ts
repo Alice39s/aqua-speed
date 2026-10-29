@@ -146,6 +146,8 @@ export async function downloadTestWorker(
                     }
                 }
 
+                onProgress?.(calculateCurrentSpeed(), totalBytesRead);
+
                 // Calculate final speed
                 const totalDuration = (performance.now() - startTime) / 1000;
                 const instantSpeed = calculateCurrentSpeed();
@@ -168,9 +170,10 @@ export async function downloadTestWorker(
         throw new Error("Max retries exceeded");
 
     } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") {
+        if (signal?.aborted || (err instanceof Error && err.name === "AbortError")) {
             const durationSeconds = (performance.now() - startTime) / 1000;
             logger.debug("Download test aborted");
+            onProgress?.((totalBytes * 8) / durationSeconds, totalBytesRead);
             return (totalBytes * 8) / durationSeconds;
         }
         logger.error("Download test failed", {

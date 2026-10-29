@@ -167,6 +167,7 @@ async function testUploadWorker(
                     }
                 }
 
+                onProgress?.(calculateCurrentSpeed(), totalBytesUploaded);
                 const totalDuration = (performance.now() - startTime) / 1000;
                 const instantSpeed = calculateCurrentSpeed();
                 const averageSpeed = (totalBytes * 8) / totalDuration;
@@ -190,8 +191,9 @@ async function testUploadWorker(
         throw new Error("Max retries exceeded");
 
     } catch (err: unknown) {
-        if (err instanceof Error && err.name === 'AbortError') {
+        if (signal?.aborted || (err instanceof Error && err.name === 'AbortError')) {
             const durationSeconds = (performance.now() - startTime) / 1000;
+            onProgress?.((totalBytes * 8) / durationSeconds, totalBytesUploaded);
             return (totalBytes * 8) / durationSeconds;
         }
         if (isDebugMode()) {

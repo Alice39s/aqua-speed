@@ -93,7 +93,7 @@ function getTestEndpoint(testEndpoint: string, config: TestConfigBase, testType:
  */
 async function measureSpeed(
     testEndpoint: string,
-    workerFn: (url: string, referrer: string, onProgress: (speed: number) => void, signal: AbortSignal, testType: TestType) => Promise<number>,
+    workerFn: (url: string, referrer: string, onProgress: (speed: number, bytesTransferred: number) => void, signal: AbortSignal, testType: TestType) => Promise<number>,
     config: TestConfigBase,
     testType: 'download' | 'upload',
 ): Promise<SpeedStats> {
@@ -116,6 +116,7 @@ async function measureSpeed(
 
     const samples: number[] = [];
     let currentSpeed = 0;
+    let totalBytes = 0;
     let activeThreads = thread;
 
     const { url: initialUrl, referrer, fallbackUrls } = getTestEndpoint(testEndpoint, mergedConfig, testType);
@@ -181,11 +182,15 @@ async function measureSpeed(
             activeThreads = adjustThreadCount(samples, activeThreads, stats, mergedConfig);
 
             try {
-                const workers = Array(activeThreads).fill(0).map(() =>
-                    attemptSpeedTest(currentUrl, referrer, workerFn, mergedConfig, signal, (speed: number) => {
+                const workers = Array.from({ length: activeThreads }, () => {
+                    let workerBytes = 0;
+                    return attemptSpeedTest(currentUrl, referrer, workerFn, mergedConfig, signal, (speed, bytes) => {
                         currentSpeed = speed;
-                    })
-                );
+                        totalBytes += bytes - workerBytes;
+                        workerBytes = bytes;
+                        onProgress(speed, totalBytes);
+                    });
+                });
 
                 const results = await Promise.all(workers);
                 const roundSpeed = results.reduce((a, b) => a + b, 0);
@@ -214,10 +219,10 @@ async function measureSpeed(
                 throw error;
             }
 
-            await sleep(500);
+            if (!signal.aborted) await sleep(500);
         }
 
-        return calculateStats(samples);
+        return { ...calculateStats(samples), totalBytes, duration: performance.now() - startTime };
     } catch (error) {
         progressBar.stop();
         throw new SpeedTestError(`Error during ${testType} speed test`, error as Error);
