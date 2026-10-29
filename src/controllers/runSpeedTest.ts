@@ -96,8 +96,8 @@ function formatSpeedResult(result: SpeedStats): string {
 
 export async function runSpeedTest(options: SpeedTestOptions): Promise<TestResult> {
     const { testEndpoint, thread, type } = options;
-    const maxTestTime = (options.timeout ?? 15) * 1000;
-    const speedTestConfig = { ...DEFAULT_SPEED_TEST_CONFIG, maxTestTime, minTestTime: Math.min(5000, maxTestTime), thread, type: type || 'Cloudflare' };
+    const maxTestTime = options.timeout ? options.timeout * 1000 : DEFAULT_SPEED_TEST_CONFIG.maxTestTime;
+    const speedTestConfig = { ...DEFAULT_SPEED_TEST_CONFIG, maxTestTime, minTestTime: Math.min(DEFAULT_SPEED_TEST_CONFIG.minTestTime, maxTestTime), thread, type: type || 'Cloudflare' };
 
     const testPhases: [
         TestPhaseDefinition<LatencyResult>,

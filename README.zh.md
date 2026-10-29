@@ -139,7 +139,7 @@ Options:
   -s, --server <url>     测速服务器 URL
   --sn <name>            测速服务器名称
   -t, --thread <number>  并发连接数
-  --timeout <seconds>    测试超时时间 (秒)
+  --timeout <seconds>    每个下载／上传阶段的最长秒数（默认 30）
   --debug               调试模式
   --type <type>         测试类型 (SingleFile|LibreSpeed|Cloudflare)
 ```

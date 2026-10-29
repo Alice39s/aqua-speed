@@ -136,7 +136,7 @@ Options:
   -s, --server <url>     Speed test server URL
   --sn <name>            Speed test server name 
   -t, --thread <number>  Number of concurrent connections  
-  --timeout <seconds>    Test timeout in seconds
+  --timeout <seconds>    Maximum seconds per download/upload phase (default: 30)
   --debug               Debug mode
   --type <type>         Test type (SingleFile|LibreSpeed|Cloudflare)
 ```
