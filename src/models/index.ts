@@ -14,6 +14,7 @@ import { downloadTestWorker } from "@/models/workers/download";
 import { testUploadWorker } from "@/models/workers/upload";
 import { checkUrlAvailability } from "@/models/workers/check";
 import { createConvergenceTracker } from "@/models/algorithms/convergence";
+import { createTrafficBudget } from "@/models/algorithms/trafficBudget";
 import { attemptSpeedTest } from "@/models/algorithms/fallback";
 
 const logger = new Logger();
@@ -137,14 +138,19 @@ async function measureSpeed(
 		...DEFAULT_TEST_OPTIONS,
 		...config,
 		thread: config.thread ?? DEFAULT_TEST_OPTIONS.thread,
+		trafficBudget:
+			config.trafficBudget ?? createTrafficBudget(config.maxTransferBytes),
 	};
-	const { maxTestTime, progressInterval, thread, debug } = mergedConfig;
+	const { maxTestTime, progressInterval, thread, debug, trafficBudget } =
+		mergedConfig;
+	if (trafficBudget.exhausted)
+		throw new SpeedTestError("Traffic budget exhausted before the test");
 
 	let transferredBytes = 0;
 	let recentSpeed = 0;
 	let previousBytes = 0;
 	let previousTime = 0;
-	let stopReason: "stable" | "timeout" = "timeout";
+	let stopReason: NonNullable<SpeedStats["stopReason"]> = "timeout";
 	const tracker = createConvergenceTracker(mergedConfig);
 	let lastProgressTime = 0;
 	const startedWorkers = new Set<number>();
@@ -188,6 +194,7 @@ async function measureSpeed(
 	}
 
 	const startTime = performance.now();
+	trafficBudget.startAttempt();
 	const controller = new AbortController();
 	const signal = AbortSignal.any([
 		controller.signal,
@@ -220,6 +227,7 @@ async function measureSpeed(
 		if (!flush || elapsed - previousTime >= 200) {
 			recentSpeed =
 				((transferredBytes - previousBytes) * 8000) / (elapsed - previousTime);
+			if (!flush) trafficBudget.observe(elapsed, recentSpeed);
 		}
 		previousTime = elapsed;
 		previousBytes = transferredBytes;
@@ -232,7 +240,13 @@ async function measureSpeed(
 		const stable =
 			!flush &&
 			tracker.sample(elapsed, transferredBytes, startedWorkers.size === thread);
-		if (!signal.aborted && stable) {
+		if (!signal.aborted && trafficBudget.exhausted) {
+			if (testType === "download") {
+				stopReason = "budget";
+				controller.abort();
+			}
+			// Let already-reserved uploads finish, bounded by the original deadline.
+		} else if (!signal.aborted && stable) {
 			stopReason = "stable";
 			controller.abort();
 		}
@@ -241,13 +255,13 @@ async function measureSpeed(
 	const updateInterval = setInterval(() => sample(), 200);
 
 	try {
-		while (!signal.aborted) {
+		while (!signal.aborted && !trafficBudget.exhausted) {
 			startedWorkers.clear();
 			const batchController = new AbortController();
 			const batchSignal = AbortSignal.any([signal, batchController.signal]);
 			const workers = Array.from({ length: thread }, async (_, worker) => {
 				try {
-					while (!batchSignal.aborted) {
+					while (!batchSignal.aborted && !trafficBudget.exhausted) {
 						let workerBytes = 0;
 						startedWorkers.delete(worker);
 						await attemptSpeedTest(
@@ -260,9 +274,21 @@ async function measureSpeed(
 								if (bytesTransferred > 0) startedWorkers.add(worker);
 								transferredBytes += bytesTransferred - workerBytes;
 								workerBytes = bytesTransferred;
+								if (
+									testType === "download" &&
+									trafficBudget.exhausted &&
+									!signal.aborted
+								) {
+									stopReason = "budget";
+									controller.abort();
+								}
 							},
 						);
-						if (!batchSignal.aborted && workerBytes === 0) {
+						if (
+							!batchSignal.aborted &&
+							!trafficBudget.exhausted &&
+							workerBytes === 0
+						) {
 							throw new Error(`No ${testType} data transferred`);
 						}
 					}
@@ -275,7 +301,7 @@ async function measureSpeed(
 			const results = await Promise.allSettled(workers);
 			const failed = results.find((result) => result.status === "rejected");
 			if (failed?.status === "rejected") {
-				if (signal.aborted) throw failed.reason;
+				if (signal.aborted || trafficBudget.exhausted) throw failed.reason;
 				let available = false;
 				while (urlIndex < fallbackUrls.length && !signal.aborted) {
 					const nextUrl = fallbackUrls[urlIndex++];
@@ -299,6 +325,7 @@ async function measureSpeed(
 				continue;
 			}
 		}
+		if (!signal.aborted && trafficBudget.exhausted) stopReason = "budget";
 		// Flush final byte reports from cancelled workers without changing the stop reason.
 		sample(true);
 		const measured = tracker.statistics();
@@ -310,7 +337,14 @@ async function measureSpeed(
 		if (transferredBytes === 0) {
 			throw new Error(`No ${testType} data transferred before the deadline`);
 		}
-		return { ...stats, totalBytes: transferredBytes, duration, stopReason };
+		return {
+			...stats,
+			totalBytes: transferredBytes,
+			duration,
+			stopReason,
+			trafficBytes: trafficBudget.usedBytes,
+			trafficLimitBytes: trafficBudget.limitBytes,
+		};
 	} catch (error) {
 		progressBar.stop();
 		throw new SpeedTestError(

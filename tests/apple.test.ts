@@ -112,7 +112,11 @@ test("continuous Apple download stops at its deadline and keeps transferred byte
 });
 
 test("Apple upload sends raw POST bodies and counts payload bytes", async () => {
-	const result = await measureUpload(origin, { ...config, maxTestTime: 1000 });
+	const result = await measureUpload(origin, {
+		...config,
+		maxTestTime: 1000,
+		maxTransferBytes: 16 * 1024 * 1024,
+	});
 	expect(result.avg).toBeGreaterThan(0);
 	expect(result.totalBytes).toBeGreaterThanOrEqual(1024 * 1024);
 	expect(result.totalBytes % (1024 * 1024)).toBe(0);
@@ -190,3 +194,51 @@ test("Apple CLI completes a test and displays both transfer results", async () =
 	expect(stdout).toContain("Flags: Apple");
 	expect(stdout).toContain("stable, stopped early");
 }, 20000);
+
+test("Apple CLI applies a fixed traffic budget to both directions", async () => {
+	const proc = Bun.spawn(
+		[
+			process.execPath,
+			"--preload",
+			fileURLToPath(new URL("./fixtures/cli-preload.ts", import.meta.url)),
+			fileURLToPath(new URL("../src/cli.ts", import.meta.url)),
+			"--type",
+			"Apple",
+			"--server",
+			origin,
+			"--thread",
+			"2",
+			"--max-data",
+			"0.1",
+		],
+		{ stdout: "pipe", stderr: "pipe" },
+	);
+	const [stdout, stderr, exitCode] = await Promise.all([
+		new Response(proc.stdout).text(),
+		new Response(proc.stderr).text(),
+		proc.exited,
+	]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain("0.1 MB/direction");
+	expect(stdout.match(/traffic budget reached/g)?.length).toBe(2);
+}, 8000);
+
+test("CLI rejects an invalid traffic budget before starting the test", async () => {
+	const proc = Bun.spawn(
+		[
+			process.execPath,
+			fileURLToPath(new URL("../src/cli.ts", import.meta.url)),
+			"--max-data",
+			"0",
+		],
+		{ stdout: "pipe", stderr: "pipe" },
+	);
+	const [stdout, stderr, exitCode] = await Promise.all([
+		new Response(proc.stdout).text(),
+		new Response(proc.stderr).text(),
+		proc.exited,
+	]);
+	expect(exitCode).not.toBe(0);
+	expect(stderr).toContain("--max-data must be a positive number");
+	expect(stdout).not.toContain("Testing download");
+});

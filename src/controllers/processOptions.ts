@@ -117,6 +117,10 @@ async function prepareDisplayInfo(config: TestConfig): Promise<TestDisplay> {
 		};
 
 		if (!config.speedtest) testInfo["Speed Test"] = "Disabled";
+		testInfo["Traffic Budget"] =
+			config.maxTransferBytes === undefined
+				? "Adaptive (up to 2500 MB/direction)"
+				: `${config.maxTransferBytes / 1_000_000} MB/direction`;
 		if (!config.latency) testInfo["Latency Test"] = "Disabled";
 		if (!config.upload) testInfo["Upload Test"] = "Disabled";
 

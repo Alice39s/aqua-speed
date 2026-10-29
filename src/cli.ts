@@ -184,6 +184,18 @@ async function main() {
 				Number.parseInt,
 			)
 			.option("--timeout <seconds>", "Test timeout in seconds", Number.parseInt)
+			.option(
+				"--max-data <MB>",
+				"Maximum payload MB per direction (default: adaptive, up to 2500 MB)",
+				(value: string) => {
+					const bytes = Number(value) * 1_000_000;
+					if (!Number.isSafeInteger(bytes) || bytes <= 0)
+						throw new Error(
+							"--max-data must be a positive number of decimal MB",
+						);
+					return bytes;
+				},
+			)
 			.option("--debug", "Debug mode", false)
 			.option(
 				"--privacy",
@@ -204,7 +216,10 @@ async function main() {
 			.parse(process.argv)
 			.opts();
 
-		const config = await mergeTestConfig(options as Partial<TestConfig>);
+		const config = await mergeTestConfig({
+			...options,
+			maxTransferBytes: options.maxData,
+		} as Partial<TestConfig>);
 		const display = await prepareDisplayInfo(config);
 
 		manageDebugMode(config.debug ?? false);
@@ -219,6 +234,7 @@ async function main() {
 				thread: config.thread,
 				timeout: config.timeout,
 				type: config.type,
+				maxTransferBytes: config.maxTransferBytes,
 			});
 
 			const endTime = process.hrtime(startTime); // End Timing

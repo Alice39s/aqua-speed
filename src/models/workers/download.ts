@@ -3,7 +3,7 @@ import { APPLE_FETCH_HEADERS } from "../providers/apple";
 import { fetch, type HeadersInit } from "undici";
 import { DEFAULT_FETCH_HEADERS } from "@/constant/fetch";
 import Logger from "@/utils/logger";
-import type { TestType } from "@/types";
+import type { TestType, TrafficBudget } from "@/types";
 
 const logger = new Logger();
 
@@ -23,6 +23,7 @@ export async function downloadTestWorker(
 	onProgress?: (speed: number, bytesTransferred: number) => void,
 	signal?: AbortSignal,
 	testType?: TestType,
+	trafficBudget?: TrafficBudget,
 ): Promise<number> {
 	const startTime = performance.now();
 	let totalBytes = 0;
@@ -108,13 +109,14 @@ export async function downloadTestWorker(
 				const reader = response.body.getReader();
 				let lastReportTime = performance.now();
 
-				while (true) {
+				while (!signal?.aborted) {
 					const { value, done } = await reader.read();
 					if (done) break;
 
 					if (value) {
 						totalBytes += value.length;
 						totalBytesRead += value.length;
+						trafficBudget?.consumeDownload(value.length);
 						const now = performance.now();
 
 						if (now - lastReportTime >= SAMPLE_INTERVAL) {
@@ -134,6 +136,10 @@ export async function downloadTestWorker(
 						}
 						// The phase sampler needs byte deltas even between UI refreshes.
 						onProgress?.(currentSpeed, totalBytesRead);
+						if (trafficBudget?.exhausted) {
+							await reader.cancel();
+							break;
+						}
 					}
 				}
 

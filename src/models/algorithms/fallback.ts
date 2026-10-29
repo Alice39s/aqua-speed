@@ -26,6 +26,7 @@ export async function attemptSpeedTest(
 			onProgress,
 			signal,
 			config.type || "SingleFile",
+			config.trafficBudget,
 		);
 	} catch (error) {
 		throw new SpeedTestError(

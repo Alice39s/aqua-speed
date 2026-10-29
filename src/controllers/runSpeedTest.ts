@@ -9,6 +9,7 @@ import { calculateStats, sleep, usToMs, isDebugMode } from "@/utils/common";
 import { measureDownload, measureUpload } from "@/models";
 import Logger from "@/utils/logger";
 import { getDomainName } from "@/utils/common";
+import { createTrafficBudget } from "@/models/algorithms/trafficBudget";
 
 const logger = new Logger();
 
@@ -102,7 +103,13 @@ function formatLatencyResult(result: LatencyResult): string {
 }
 
 function formatSpeedResult(result: SpeedStats): string {
-	return `${(result.avg / 1000000).toFixed(2)} Mbps${result.stopReason === "stable" ? " (stable, stopped early)" : ""}`;
+	const reason =
+		result.stopReason === "budget"
+			? " (traffic budget reached)"
+			: result.stopReason === "stable"
+				? " (stable, stopped early)"
+				: "";
+	return `${(result.avg / 1000000).toFixed(2)} Mbps${reason}`;
 }
 
 export async function runSpeedTest(
@@ -112,6 +119,9 @@ export async function runSpeedTest(
 	const maxTestTime = options.timeout
 		? options.timeout * 1000
 		: DEFAULT_SPEED_TEST_CONFIG.maxTestTime;
+	// These ledgers live outside executeTestPhase so retries cannot replenish them.
+	const downloadBudget = createTrafficBudget(options.maxTransferBytes);
+	const uploadBudget = createTrafficBudget(options.maxTransferBytes);
 	const speedTestConfig = {
 		...DEFAULT_SPEED_TEST_CONFIG,
 		maxTestTime,
@@ -134,7 +144,11 @@ export async function runSpeedTest(
 		{
 			name: "download",
 			startMessage: "Testing download speed...",
-			execute: () => measureDownload(testEndpoint, speedTestConfig),
+			execute: () =>
+				measureDownload(testEndpoint, {
+					...speedTestConfig,
+					trafficBudget: downloadBudget,
+				}),
 			formatResult: (result) =>
 				`Download test completed - Avg: ${formatSpeedResult(result)}`,
 		},
@@ -144,7 +158,10 @@ export async function runSpeedTest(
 			execute: () =>
 				type === "SingleFile"
 					? Promise.resolve(calculateStats([]))
-					: measureUpload(testEndpoint, speedTestConfig),
+					: measureUpload(testEndpoint, {
+							...speedTestConfig,
+							trafficBudget: uploadBudget,
+						}),
 			formatResult: (result) =>
 				`Upload test completed - Avg: ${formatSpeedResult(result)}`,
 		},
