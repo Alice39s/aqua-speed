@@ -98,6 +98,7 @@ for (const spacing of [70, 33]) {
 		let sent = 0;
 		let posts = 0;
 		let firstPostAt = 0;
+		const progress: number[] = [];
 		const server = Bun.serve({
 			port: 0,
 			async fetch(request) {
@@ -117,6 +118,7 @@ for (const spacing of [70, 33]) {
 				type: "Apple",
 				thread: 4,
 				maxTestTime: 10000,
+				onProgress: (_rate, bytes) => progress.push(bytes),
 			});
 			expect(result.stopReason).toBe("stable");
 			expect(result.duration).toBeLessThan(10000);
@@ -124,7 +126,15 @@ for (const spacing of [70, 33]) {
 				0.9,
 			);
 			expect(result.avg / ((1024 * 1024 * 8000) / spacing)).toBeLessThan(1.1);
-			expect(result.totalBytes).toBe(sent);
+			// A stable stop may interrupt a body after pull has handed bytes to the
+			// transport but before arrayBuffer resolves on the server. At most one
+			// 1 MiB body per worker can be outstanding; all such bytes remain counted.
+			expect(result.totalBytes).toBe(progress.at(-1)!);
+			expect(
+				progress.every((bytes, i) => i === 0 || bytes >= progress[i - 1]),
+			).toBe(true);
+			expect(result.totalBytes).toBeGreaterThanOrEqual(sent);
+			expect(result.totalBytes - sent).toBeLessThanOrEqual(4 * 1024 * 1024);
 			// The 200 ms reporting timer may first fire after the first 33/70 ms ACK;
 			// direct stream progress before ACKs is separately asserted by the slow-uplink fixture.
 			const finishedPosts = posts;
