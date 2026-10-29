@@ -107,6 +107,8 @@ bun install
 
 Requires Bun 1.4.4 or newer. Dependencies are pinned in `bun.lock`; use `bun install --frozen-lockfile` for reproducible installs.
 
+TypeScript 7 checks use the native `tsgolint` engine through `bun run typecheck`.
+
 #### 4. Run
 
 ```bash

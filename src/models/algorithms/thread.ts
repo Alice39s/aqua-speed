@@ -11,18 +11,6 @@ interface NetworkMetrics {
 	variance: number;
 }
 
-interface AdaptiveThresholds {
-	errorTolerance: number;
-	stabilityThreshold: number;
-	congestionThreshold: number;
-}
-
-const DEFAULT_ADAPTIVE_THRESHOLDS: AdaptiveThresholds = {
-	errorTolerance: 0.15,
-	stabilityThreshold: 0.5,
-	congestionThreshold: 0.7,
-};
-
 /**
  * Dynamically adjusts the number of active threads based on network performance metrics.
  * Enhanced to consider multiple factors for more intelligent adjustments.
@@ -38,11 +26,7 @@ export function adjustThreadCount(
 	stats: SpeedStats,
 	config: TestConfigBase,
 ): number {
-	const {
-		targetError = DEFAULT_ADAPTIVE_THRESHOLDS.errorTolerance,
-		minTestTime,
-		maxTestTime,
-	} = {
+	const { targetError } = {
 		...DEFAULT_TEST_OPTIONS,
 		...config,
 	};

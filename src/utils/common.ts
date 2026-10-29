@@ -1,4 +1,4 @@
-import type { TestConfig, SpeedStats, SpeedWindow } from "@/types";
+import type { SpeedStats, SpeedWindow } from "@/types";
 
 import { Address4, Address6 } from "ip-address";
 

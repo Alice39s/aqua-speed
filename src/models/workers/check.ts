@@ -58,7 +58,9 @@ export async function checkUrlAvailability(
 			logger.error("[checkUrlAvailability] Request aborted as expected");
 			return true;
 		}
-		logger.error(`[checkUrlAvailability] Error checking URL: ${error}`);
+		logger.error(
+			`[checkUrlAvailability] Error checking URL: ${error instanceof Error ? error.message : "Unknown error"}`,
+		);
 		return false;
 	}
 }

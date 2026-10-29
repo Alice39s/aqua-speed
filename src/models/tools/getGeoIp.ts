@@ -2,7 +2,7 @@ import type { IpGeoResponse, TestConfig } from "@/types";
 import { DEFAULT_FETCH_OPTIONS, WS_OPTIONS_OOKLA } from "@/constant/fetch";
 import { isDebugMode } from "@/utils/common";
 import Logger from "@/utils/logger";
-import { type Dispatcher, fetch, Request, Response } from "undici";
+import { type RequestInit, Headers, fetch, Request, Response } from "undici";
 import WebSocket from "ws";
 
 const logger = new Logger();
@@ -59,9 +59,7 @@ abstract class BaseIpSource implements IpSource {
 
 		try {
 			// Merge headers
-			const headers = {
-				...(options.headers || {}),
-			};
+			const headers = new Headers(options.headers);
 
 			logger.debug(`Request headers: ${JSON.stringify(headers)}`);
 			logger.debug(
@@ -82,9 +80,8 @@ abstract class BaseIpSource implements IpSource {
 				new Request(url, {
 					...DEFAULT_FETCH_OPTIONS,
 					...options,
-					// @ts-ignore
-					headers: headers as HeadersInit & Dispatcher.RequestOptions,
-					path: new URL(url).pathname,
+					headers,
+					signal: options.signal ?? AbortSignal.timeout(10000),
 				}),
 			);
 
@@ -110,7 +107,7 @@ abstract class BaseIpSource implements IpSource {
 			try {
 				const responseBody = await clonedResponse.text();
 				logger.debug(`Response body: ${responseBody}`);
-			} catch (e) {
+			} catch {
 				logger.debug("Could not read response body for logging");
 			}
 
@@ -144,7 +141,7 @@ abstract class BaseIpSource implements IpSource {
 							);
 						}
 					}
-				} catch (e) {
+				} catch {
 					logger.debug("Could not read error response body");
 				}
 			}
@@ -385,7 +382,13 @@ class OoklaSource extends BaseIpSource {
 			});
 
 			ws.on("message", (data) => {
-				const message = data.toString();
+				const message = Buffer.isBuffer(data)
+					? data.toString("utf8")
+					: new TextDecoder().decode(
+							data instanceof ArrayBuffer
+								? data
+								: Buffer.concat(data.map((chunk) => new Uint8Array(chunk))),
+						);
 				if (message.startsWith("YOURIP")) {
 					const ip = message.split(" ")[1]?.trim();
 					if (ip) {

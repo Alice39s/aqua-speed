@@ -2,10 +2,10 @@ import type { LatencyStats, TestType } from "../types";
 import { msToMicros, calculateStats, sleep, usToMs } from "../utils/common";
 import Logger from "../utils/logger";
 import { promise as ping } from "ping";
-import { type Dispatcher, fetch, type HeadersInit } from "undici";
+import { type RequestInit, fetch } from "undici";
 import WebSocket from "ws";
 import {
-	DEFAULT_FETCH_OPTIONS,
+	DEFAULT_FETCH_HEADERS,
 	DEFAULT_FETCH_HEADERS_OOKLA,
 } from "../constant/fetch";
 import { isDebugMode } from "../utils/common";
@@ -41,14 +41,16 @@ async function measureICMPLatency(host: string, count = 3): Promise<number> {
 					successCount++;
 				}
 			} catch (err) {
-				logger.error(`[measureICMPLatency] Ping error: ${err}`);
+				logger.error(
+					`[measureICMPLatency] Ping error: ${err instanceof Error ? err.message : "Unknown error"}`,
+				);
 			}
 		});
 
 		await Promise.all(pingPromises);
 
 		return successCount === 0 ? -1 : Math.round(totalLatency / successCount);
-	} catch (error) {
+	} catch {
 		logger.error(`[measureICMPLatency] Invalid URL format: ${host}`);
 		return -1;
 	}
@@ -70,7 +72,7 @@ async function measureTCPLatency(host: string, samples = 3): Promise<number> {
 	let url: URL;
 	try {
 		url = new URL(host);
-	} catch (error) {
+	} catch {
 		logger.error(`[measureTCPLatency] Invalid URL format: ${host}`);
 		return -1;
 	}
@@ -129,7 +131,7 @@ async function measureTCPLatency(host: string, samples = 3): Promise<number> {
  */
 async function measureHTTPLatencyH2(
 	url: string,
-	options: Dispatcher.RequestOptions,
+	options: RequestInit,
 ): Promise<number> {
 	const controller = new AbortController();
 	const start = process.hrtime.bigint();
@@ -138,8 +140,6 @@ async function measureHTTPLatencyH2(
 		const response = await fetch(url, {
 			...options,
 			signal: controller.signal,
-			// @ts-ignore: undici supports 'httpVersion'
-			httpVersion: "2.0",
 		});
 
 		controller.abort();
@@ -156,7 +156,9 @@ async function measureHTTPLatencyH2(
 			return Math.round(latency);
 		}
 		if (isDebugMode()) {
-			logger.error(`[measureHTTPLatencyH2] Error: ${error}`);
+			logger.error(
+				`[measureHTTPLatencyH2] Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+			);
 		}
 		return -1;
 	}
@@ -207,32 +209,29 @@ async function measureHTTPLatency(url: URL, type: TestType): Promise<number> {
 		return -1;
 	}
 
-	const commonOptions: Dispatcher.RequestOptions = {
+	const commonOptions: RequestInit = {
 		method: "GET",
 		headers: {
-			...DEFAULT_FETCH_OPTIONS.headers,
+			...DEFAULT_FETCH_HEADERS,
 			Referer: url.origin,
 			Origin: url.origin,
 		},
-		path: url.pathname,
 	};
 
 	let testUrl: string;
-	let options: Dispatcher.RequestOptions;
+	let options: RequestInit;
 
 	switch (type) {
 		case "Cloudflare":
 			testUrl = `${url.origin}/cdn-cgi/trace`;
 			options = {
 				...commonOptions,
-				path: "/cdn-cgi/trace",
 			};
 			break;
 		case "LibreSpeed":
 			testUrl = url.href;
 			options = {
 				...commonOptions,
-				path: url.pathname,
 			};
 			break;
 		case "Ookla":
@@ -241,7 +240,6 @@ async function measureHTTPLatency(url: URL, type: TestType): Promise<number> {
 			testUrl = url.href;
 			options = {
 				...commonOptions,
-				path: url.pathname,
 			};
 	}
 
@@ -263,8 +261,6 @@ async function measureHTTPLatency(url: URL, type: TestType): Promise<number> {
 		const response = await fetch(testUrl, {
 			...options,
 			signal: controller.signal,
-			// @ts-ignore: undici supports 'httpVersion'
-			httpVersion: "1.1",
 		});
 
 		controller.abort();
@@ -273,7 +269,9 @@ async function measureHTTPLatency(url: URL, type: TestType): Promise<number> {
 		return response.ok ? Math.round(latency) : -1;
 	} catch (err: unknown) {
 		if (isDebugMode()) {
-			logger.error(`[measureHTTPLatency] Error: ${err}`);
+			logger.error(
+				`[measureHTTPLatency] Error: ${err instanceof Error ? err.message : "Unknown error"}`,
+			);
 		}
 		if (err instanceof Error && err.name === "AbortError") {
 			const end = process.hrtime.bigint();
@@ -308,7 +306,7 @@ export async function measureLatency(
 	let url: URL;
 	try {
 		url = new URL(testEndpoint);
-	} catch (error) {
+	} catch {
 		throw new Error(`Invalid URL format: ${testEndpoint}`);
 	}
 
@@ -345,7 +343,9 @@ export async function measureLatency(
 		await Promise.all(measurementPromises);
 	} catch (error) {
 		latencySpinner.fail("Latency test failed");
-		logger.error(`[measureLatency] Error: ${error}`);
+		logger.error(
+			`[measureLatency] Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+		);
 		throw error;
 	} finally {
 		clearInterval(updateInterval);

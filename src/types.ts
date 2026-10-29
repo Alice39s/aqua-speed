@@ -1,5 +1,3 @@
-import type { Interface } from "node:readline";
-import type internal from "node:stream";
 import type { Ora } from "ora";
 
 export type { Ora };

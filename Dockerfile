@@ -11,6 +11,7 @@ COPY package.json bun.lock tsconfig.json ./
 COPY patches/ ./patches/
 
 # Install dependencies
+COPY patches/ ./patches/
 RUN bun install --frozen-lockfile
 
 # Copy source code
