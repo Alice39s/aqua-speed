@@ -73,7 +73,8 @@ test("Apple upload deadline uses the time of the last completed POST", async () 
 			minSamples: 1,
 		});
 		expect(startedPosts).toBe(2);
-		expect(result.totalBytes).toBe(1024 * 1024);
+		// Both bodies reached the transport; only the first POST completed before the deadline.
+		expect(result.totalBytes).toBe(2 * 1024 * 1024);
 		const completedRate = (1024 * 1024 * 8 * 1000) / (completedAt - startedAt);
 		expect(result.avg / completedRate).toBeGreaterThan(0.9);
 		expect(result.avg / completedRate).toBeLessThan(1.1);

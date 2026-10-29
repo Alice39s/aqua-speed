@@ -151,7 +151,11 @@ async function measureSpeed(
 	let previousBytes = 0;
 	let previousTime = 0;
 	let stopReason: NonNullable<SpeedStats["stopReason"]> = "timeout";
-	const tracker = createConvergenceTracker(mergedConfig);
+	const tracker = createConvergenceTracker(
+		mergedConfig,
+		testType === "upload" ? 1000 : 200,
+	);
+	const workerRates: number[] = [];
 	let lastProgressTime = 0;
 	const startedWorkers = new Set<number>();
 
@@ -265,7 +269,7 @@ async function measureSpeed(
 						let workerBytes = 0;
 						// Repeated finite requests remain part of the same active worker.
 						// Reset readiness only when the whole endpoint/cohort changes.
-						await attemptSpeedTest(
+						const rate = await attemptSpeedTest(
 							currentUrl,
 							referrer,
 							workerFn,
@@ -285,6 +289,7 @@ async function measureSpeed(
 								}
 							},
 						);
+						if (rate > 0) workerRates[worker] = rate;
 						if (
 							!batchSignal.aborted &&
 							!trafficBudget.exhausted &&
@@ -322,6 +327,7 @@ async function measureSpeed(
 				if (!available) throw failed.reason;
 				// A new endpoint must earn its own stable window.
 				tracker.reset(performance.now() - startTime, transferredBytes);
+				workerRates.length = 0;
 				startedWorkers.clear();
 				continue;
 			}
@@ -334,7 +340,13 @@ async function measureSpeed(
 		const stats =
 			measured.samples.length > 0
 				? measured
-				: calculateStats([(transferredBytes * 8000) / duration], true);
+				: calculateStats(
+						[
+							workerRates.reduce((sum, rate) => sum + rate, 0) ||
+								(transferredBytes * 8000) / duration,
+						],
+						true,
+					);
 		if (transferredBytes === 0) {
 			throw new Error(`No ${testType} data transferred before the deadline`);
 		}

@@ -93,43 +93,48 @@ test("a fluctuating download continues until its hard deadline", async () => {
 	}
 }, 7000);
 
-test("upload convergence stops scheduling POSTs and retains confirmed payload bytes", async () => {
-	let confirmed = 0;
-	let posts = 0;
-	let firstPostAt = 0;
-	const server = Bun.serve({
-		port: 0,
-		async fetch(request) {
-			const bytes = (await request.arrayBuffer()).byteLength;
-			if (bytes <= 100) return new Response(null, { status: 200 });
-			firstPostAt ||= performance.now();
-			posts++;
-			// Pace the aggregate acknowledgements, compensating for timer granularity
-			// and per-request work instead of accumulating drift on Windows runners.
-			await delay(Math.max(0, firstPostAt + posts * 40 - performance.now()));
-			confirmed += bytes;
-			return new Response(null, { status: 200 });
-		},
-	});
-	try {
-		const result = await measureUpload(server.url.origin, {
-			type: "Apple",
-			thread: 1,
-			minTestTime: 2000,
-			maxTestTime: 10000,
-			targetError: 0.15,
+for (const spacing of [70, 33]) {
+	test(`upload converges with default tolerance and ${spacing} ms aggregate ACK spacing`, async () => {
+		let sent = 0;
+		let posts = 0;
+		let firstPostAt = 0;
+		const server = Bun.serve({
+			port: 0,
+			async fetch(request) {
+				const bytes = (await request.arrayBuffer()).byteLength;
+				if (bytes <= 100) return new Response(null);
+				sent += bytes;
+				firstPostAt ||= performance.now();
+				posts++;
+				await delay(
+					Math.max(0, firstPostAt + posts * spacing - performance.now()),
+				);
+				return new Response(null);
+			},
 		});
-		expect(result.stopReason).toBe("stable");
-		expect(result.duration).toBeLessThan(10000);
-		expect(result.totalBytes).toBeGreaterThan(0);
-		expect(result.totalBytes).toBeLessThanOrEqual(confirmed);
-		const finishedPosts = posts;
-		await delay(100);
-		expect(posts).toBe(finishedPosts);
-	} finally {
-		await server.stop(true);
-	}
-}, 15000);
+		try {
+			const result = await measureUpload(server.url.origin, {
+				type: "Apple",
+				thread: 4,
+				maxTestTime: 10000,
+			});
+			expect(result.stopReason).toBe("stable");
+			expect(result.duration).toBeLessThan(10000);
+			expect(result.avg / ((1024 * 1024 * 8000) / spacing)).toBeGreaterThan(
+				0.9,
+			);
+			expect(result.avg / ((1024 * 1024 * 8000) / spacing)).toBeLessThan(1.1);
+			expect(result.totalBytes).toBe(sent);
+			// The 200 ms reporting timer may first fire after the first 33/70 ms ACK;
+			// direct stream progress before ACKs is separately asserted by the slow-uplink fixture.
+			const finishedPosts = posts;
+			await delay(100);
+			expect(posts).toBe(finishedPosts);
+		} finally {
+			await server.stop(true);
+		}
+	}, 15000);
+}
 
 test("a failed connection cancels its peers and remains an error", async () => {
 	let requests = 0;

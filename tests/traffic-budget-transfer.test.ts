@@ -127,7 +127,7 @@ test("a failed upload consumes its reservation before the worker retries", async
 		expect(requests).toBe(2);
 		expect(received).toBe(limit);
 		expect(result.trafficBytes).toBe(limit);
-		expect(result.totalBytes).toBe(limit - 1024 * 1024);
+		expect(result.totalBytes).toBe(received);
 	} finally {
 		await server.stop(true);
 	}
@@ -179,3 +179,49 @@ test("a phase retry reuses spent traffic and does not probe an exhausted budget"
 		await server.stop(true);
 	}
 }, 8000);
+
+test("a real uplink below 25 Mbps calibrates to the 250 MB floor during pending POSTs", async () => {
+	let acknowledged = 0;
+	let received = 0;
+	let progressBeforeAck = false;
+	const server = Bun.serve({
+		port: 0,
+		async fetch(request) {
+			if (Number(request.headers.get("content-length")) <= 100)
+				return new Response(null);
+			const reader = request.body!.getReader();
+			try {
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) break;
+					for (let offset = 0; offset < value.length; offset += 65536) {
+						received += Math.min(65536, value.length - offset);
+						await delay(128, undefined, { signal: request.signal });
+					}
+				}
+				acknowledged++;
+				return new Response(null);
+			} catch {
+				return new Response(null, { status: 499 });
+			}
+		},
+	});
+	try {
+		const result = await measureUpload(server.url.origin, {
+			type: "Apple",
+			thread: 4,
+			maxTestTime: 6500,
+			onProgress: (_speed, bytes) => {
+				if (bytes > 0 && acknowledged === 0) progressBeforeAck = true;
+			},
+		});
+		expect(progressBeforeAck).toBe(true);
+		expect(acknowledged).toBeGreaterThan(0);
+		expect((received * 8000) / result.duration).toBeLessThan(25e6);
+		expect(result.trafficLimitBytes).toBe(250_000_000);
+		expect(result.totalBytes).toBeGreaterThan(0);
+		expect(result.totalBytes).toBeLessThanOrEqual(result.trafficBytes!);
+	} finally {
+		await server.stop(true);
+	}
+}, 10000);

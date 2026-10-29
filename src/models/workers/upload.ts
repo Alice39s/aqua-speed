@@ -29,6 +29,7 @@ async function testUploadWorker(
 	let lastCompletedAt = startTime;
 	let totalBytes = 0;
 	let totalBytesUploaded = 0;
+	let sentBytes = 0;
 
 	// Speed calculation window
 	const speedWindow: Array<{ bytes: number; timestamp: number }> = [];
@@ -142,10 +143,34 @@ async function testUploadWorker(
 					if (size === 0) break;
 					const { body, headers } = createUploadData(size, testType);
 
+					const payload =
+						typeof body === "string" ? encoder.encode(body) : body;
+					let offset = 0;
+					const payloadStart = testType === "LibreSpeed" ? prefix.length : 0;
+					const stream = new ReadableStream<Uint8Array>({
+						pull(controller) {
+							if (signal?.aborted) {
+								controller.close();
+								return;
+							}
+							const end = Math.min(offset + 65536, payload.byteLength);
+							const before = Math.max(0, Math.min(size, offset - payloadStart));
+							const after = Math.max(0, Math.min(size, end - payloadStart));
+							controller.enqueue(payload.subarray(offset, end));
+							offset = end;
+							// Count payload handed to the transport, even while the POST awaits a response.
+							// Multipart framing is charged to the budget, but is not measured payload.
+							sentBytes += after - before;
+							onProgress?.(calculateCurrentSpeed(), sentBytes);
+							if (offset === payload.byteLength) controller.close();
+						},
+					});
+					headers.set("Content-Length", String(payload.byteLength));
 					const fetchOptions: RequestInit = {
 						method: "POST",
 						headers,
-						body,
+						body: stream,
+						duplex: "half",
 						signal,
 					};
 
@@ -197,7 +222,7 @@ async function testUploadWorker(
 
 						lastReportTime = now;
 					}
-					onProgress?.(calculateCurrentSpeed(), totalBytesUploaded);
+					onProgress?.(calculateCurrentSpeed(), sentBytes);
 					// A confirmed plateau may cancel the batch between POST requests.
 					if (signal?.aborted) break;
 
@@ -210,7 +235,7 @@ async function testUploadWorker(
 					}
 				}
 
-				onProgress?.(calculateCurrentSpeed(), totalBytesUploaded);
+				onProgress?.(calculateCurrentSpeed(), sentBytes);
 				const totalDuration = (performance.now() - startTime) / 1000;
 				const instantSpeed = calculateCurrentSpeed();
 				const averageSpeed = (totalBytes * 8) / totalDuration;
@@ -242,7 +267,7 @@ async function testUploadWorker(
 				((totalBytesUploaded > 0 ? lastCompletedAt : performance.now()) -
 					startTime) /
 				1000;
-			onProgress?.((totalBytes * 8) / durationSeconds, totalBytesUploaded);
+			onProgress?.((totalBytes * 8) / durationSeconds, sentBytes);
 			return (totalBytes * 8) / durationSeconds;
 		}
 		if (isDebugMode()) {

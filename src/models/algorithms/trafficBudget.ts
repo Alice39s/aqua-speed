@@ -18,6 +18,8 @@ export function createTrafficBudget(maxTransferBytes?: number): TrafficBudget {
 	let blocked = false;
 	let calibrated = maxTransferBytes !== undefined;
 	const rates: number[] = [];
+	let previousObservation = 0;
+	let firstTrafficAt: number | undefined;
 	return {
 		get limitBytes() {
 			return limit;
@@ -30,16 +32,21 @@ export function createTrafficBudget(maxTransferBytes?: number): TrafficBudget {
 		},
 		startAttempt() {
 			rates.length = 0;
+			previousObservation = 0;
+			firstTrafficAt = undefined;
 		},
 		observe(elapsed, bitsPerSecond) {
-			if (calibrated || elapsed < 1200 || !Number.isFinite(bitsPerSecond))
-				return;
+			if (calibrated || !Number.isFinite(bitsPerSecond)) return;
+			if (bitsPerSecond > 0) firstTrafficAt ??= previousObservation;
+			previousObservation = elapsed;
+			if (elapsed < 1200) return;
 			rates.push(Math.max(0, bitsPerSecond));
 			if (rates.length > 10) rates.shift();
 			if (
 				elapsed < CALIBRATION_TIME ||
 				rates.length < 8 ||
-				rates.filter((rate) => rate > 0).length < 5
+				firstTrafficAt === undefined ||
+				elapsed - firstTrafficAt < 1000
 			)
 				return;
 			// The upper quartile tolerates brief stalls without letting one burst set the cap.

@@ -114,3 +114,18 @@ test("unequal sampling intervals use duration-weighted speed and deviation", () 
 	expect(stats.stdDev).toBeCloseTo(Math.sqrt(3e12), 1);
 	expect(Number.isFinite(stats.error)).toBe(true);
 });
+
+test("one-second upload fitting rejects sustained oscillation, ramps, and repeated stalls", () => {
+	for (const rate of [
+		(time: number) => (Math.floor(time / 2000) % 2 === 0 ? 70e6 : 130e6),
+		(time: number) => 10e6 + time * 3000,
+		(time: number) => (time % 3000 < 1000 ? 0 : 100e6),
+	]) {
+		const tracker = createConvergenceTracker(config, 1000);
+		let bytes = 0;
+		for (let time = 200; time <= 30000; time += 200) {
+			bytes += (rate(time) * 200) / 8000;
+			expect(tracker.sample(time, bytes, true)).toBe(false);
+		}
+	}
+});

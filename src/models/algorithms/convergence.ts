@@ -17,12 +17,19 @@ export function createConvergenceTracker(
 	config: Required<
 		Pick<TestConfigBase, "minTestTime" | "minSamples" | "targetError">
 	>,
+	measurementWindow = 200,
 ) {
 	let previousTime = 0;
 	let startedAt = 0;
 	let previousBytes = 0;
 	let stableSince: number | undefined;
 	const samples: ThroughputSample[] = [];
+	// Keep raw intervals for result statistics; fit upload byte growth over a full second
+	// so finite POST boundaries and transport buffering do not alias with the 200 ms timer.
+	const observations: { timestamp: number; bytes: number }[] = [
+		{ timestamp: 0, bytes: 0 },
+	];
+	const fitted: ThroughputSample[] = [];
 
 	function sample(
 		timestamp: number,
@@ -38,7 +45,25 @@ export function createConvergenceTracker(
 		// Exclude TCP startup and intervals that straddle the warmup boundary.
 		if (intervalStart - startedAt < WARMUP_TIME) return false;
 		samples.push({ timestamp, duration, speed });
-		const recent = samples.filter((s) => s.timestamp > timestamp - WINDOW_TIME);
+		const origin = observations.findLast(
+			(p) => p.timestamp <= timestamp - measurementWindow,
+		);
+		observations.push({ timestamp, bytes: totalBytes });
+		if (origin && origin.timestamp - startedAt >= WARMUP_TIME) {
+			fitted.push({
+				timestamp,
+				duration,
+				speed:
+					(Math.max(0, totalBytes - origin.bytes) * 8000) /
+					(timestamp - origin.timestamp),
+			});
+		}
+		while (
+			observations.length > 1 &&
+			observations[1].timestamp <= timestamp - measurementWindow
+		)
+			observations.shift();
+		const recent = fitted.filter((s) => s.timestamp > timestamp - WINDOW_TIME);
 		const stats = calculateStats(
 			recent.map((s) => s.speed),
 			true,
@@ -119,6 +144,9 @@ export function createConvergenceTracker(
 		previousBytes = totalBytes;
 		stableSince = undefined;
 		samples.length = 0;
+		fitted.length = 0;
+		observations.length = 0;
+		observations.push({ timestamp, bytes: totalBytes });
 	}
 	return { sample, statistics, reset };
 }

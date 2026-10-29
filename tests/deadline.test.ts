@@ -46,12 +46,14 @@ test("download deadline returns partial progress from active streams", async () 
 
 test("upload deadline returns counted bytes while a later POST is pending", async () => {
 	let uploads = 0;
+	let received = 0;
 	const server = Bun.serve({
 		port: 0,
 		async fetch(request) {
 			const bytes = (await request.arrayBuffer()).byteLength;
 			if (bytes > 100) {
 				uploads++;
+				received += bytes;
 				await delay(uploads === 1 ? 20 : 1000);
 			}
 			return new Response(null, { status: 200 });
@@ -66,7 +68,8 @@ test("upload deadline returns counted bytes while a later POST is pending", asyn
 			minSamples: 1,
 			targetError: 1,
 		});
-		expect(result.totalBytes).toBe(1024 * 1024);
+		expect(received).toBe(2 * 1024 * 1024);
+		expect(result.totalBytes).toBe(received);
 		expect(result.avg).toBeGreaterThan(0);
 		expect(result.duration).toBeLessThan(800);
 		expect(uploads).toBe(2);
