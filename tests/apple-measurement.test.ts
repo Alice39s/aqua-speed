@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
 import { setTimeout as delay } from "node:timers/promises";
-import { measureDownload, measureUpload } from "../src/models";
+import { measureUpload } from "../src/models";
+import { downloadTestWorker } from "../src/models/workers/download";
 
-test("Apple Range downloads finish rounds and accumulate multiple samples", async () => {
+test("Apple Range downloads complete multiple finite requests independently of sampling", async () => {
 	const ranges: (string | null)[] = [];
 	const payload = new Uint8Array(25_000_000);
 	const server = Bun.serve({
@@ -21,16 +22,24 @@ test("Apple Range downloads finish rounds and accumulate multiple samples", asyn
 		},
 	});
 	try {
-		const result = await measureDownload(server.url.origin, {
-			type: "Apple",
-			thread: 1,
-			minTestTime: 0,
-			maxTestTime: 1600,
-			minSamples: 3,
-		});
-		expect(result.samples.length).toBeGreaterThan(1);
-		expect(result.totalBytes).toBeGreaterThan(25_000_000);
-		expect(ranges.length).toBeGreaterThan(1);
+		// Convergence now samples bytes on a timer, and a fast loopback can exhaust
+		// its budget before warmup. Verify the Range/EOF contract directly instead
+		// of making this protocol test depend on sampler or budget timing.
+		for (let round = 0; round < 2; round++) {
+			let transferred = 0;
+			const rate = await downloadTestWorker(
+				`${server.url.origin}/api/v1/gm/large`,
+				server.url.origin,
+				(_rate, bytes) => {
+					transferred = bytes;
+				},
+				AbortSignal.timeout(1600),
+				"Apple",
+			);
+			expect(transferred).toBe(payload.length);
+			expect(rate).toBeGreaterThan(0);
+		}
+		expect(ranges.length).toBe(2);
 		expect(ranges.every((range) => range === "bytes=0-24999999")).toBe(true);
 	} finally {
 		await server.stop(true);
