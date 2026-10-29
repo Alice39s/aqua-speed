@@ -196,50 +196,56 @@ test("Apple CLI completes a test and displays both transfer results", async () =
 	expect(stdout).toContain("Traffic Budget: Adaptive");
 }, 20000);
 
-test("Apple CLI applies a fixed traffic budget to both directions", async () => {
-	const proc = Bun.spawn(
-		[
-			process.execPath,
-			"--preload",
-			fileURLToPath(new URL("./fixtures/cli-preload.ts", import.meta.url)),
-			fileURLToPath(new URL("../src/cli.ts", import.meta.url)),
-			"--type",
-			"Apple",
-			"--server",
-			origin,
-			"--thread",
-			"2",
-			"--max-data",
-			"0.1",
-		],
-		{ stdout: "pipe", stderr: "pipe" },
-	);
-	const [stdout, stderr, exitCode] = await Promise.all([
-		new Response(proc.stdout).text(),
-		new Response(proc.stderr).text(),
-		proc.exited,
-	]);
-	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("0.1 MB/direction");
-	expect(stdout.match(/traffic budget reached/g)?.length).toBe(2);
-}, 8000);
+for (const budget of ["0.1", "1.005"]) {
+	test(`Apple CLI applies ${budget} decimal MB to both directions`, async () => {
+		const proc = Bun.spawn(
+			[
+				process.execPath,
+				"--preload",
+				fileURLToPath(new URL("./fixtures/cli-preload.ts", import.meta.url)),
+				fileURLToPath(new URL("../src/cli.ts", import.meta.url)),
+				"--type",
+				"Apple",
+				"--server",
+				origin,
+				"--thread",
+				"2",
+				"--max-data",
+				budget,
+			],
+			{ stdout: "pipe", stderr: "pipe" },
+		);
+		const [stdout, stderr, exitCode] = await Promise.all([
+			new Response(proc.stdout).text(),
+			new Response(proc.stderr).text(),
+			proc.exited,
+		]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain(`${budget} MB/direction`);
+		expect(stdout.match(/traffic budget reached/g)?.length).toBe(2);
+	}, 8000);
+}
 
-test("CLI rejects an invalid traffic budget before starting the test", async () => {
-	const proc = Bun.spawn(
-		[
-			process.execPath,
-			fileURLToPath(new URL("../src/cli.ts", import.meta.url)),
-			"--max-data",
-			"0",
-		],
-		{ stdout: "pipe", stderr: "pipe" },
-	);
-	const [stdout, stderr, exitCode] = await Promise.all([
-		new Response(proc.stdout).text(),
-		new Response(proc.stderr).text(),
-		proc.exited,
-	]);
-	expect(exitCode).not.toBe(0);
-	expect(stderr).toContain("--max-data must be a positive number");
-	expect(stdout).not.toContain("Testing download");
-});
+for (const value of ["0", "-1", "NaN", "Infinity", "1e30", "0.0000001"]) {
+	test(`CLI rejects invalid traffic budget ${value} with a usage error`, async () => {
+		const proc = Bun.spawn(
+			[
+				process.execPath,
+				fileURLToPath(new URL("../src/cli.ts", import.meta.url)),
+				"--max-data",
+				value,
+			],
+			{ stdout: "pipe", stderr: "pipe" },
+		);
+		const [stdout, stderr, exitCode] = await Promise.all([
+			new Response(proc.stdout).text(),
+			new Response(proc.stderr).text(),
+			proc.exited,
+		]);
+		expect(exitCode).not.toBe(0);
+		expect(stderr).toContain("Expected a positive number of decimal MB.");
+		expect(stderr).not.toContain("Fatal error");
+		expect(stderr).not.toContain("at ");
+		expect(stdout).not.toContain("Testing download");
+	});
+}

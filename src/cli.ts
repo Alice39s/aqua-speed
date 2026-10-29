@@ -1,4 +1,4 @@
-import { program } from "commander";
+import { program, InvalidArgumentError } from "commander";
 import { runSpeedTest } from "@/controllers/runSpeedTest";
 import { description, version } from "../package.json";
 import { formatTestResults } from "@/utils/format";
@@ -188,10 +188,15 @@ async function main() {
 				"--max-data <MB>",
 				"Maximum payload MB per direction (default: adaptive, up to 2500 MB)",
 				(value: string) => {
-					const bytes = Number(value) * 1_000_000;
-					if (!Number.isSafeInteger(bytes) || bytes <= 0)
-						throw new Error(
-							"--max-data must be a positive number of decimal MB",
+					const megabytes = Number(value);
+					const bytes = Math.round(megabytes * 1_000_000);
+					if (
+						!Number.isFinite(megabytes) ||
+						!Number.isSafeInteger(bytes) ||
+						bytes <= 0
+					)
+						throw new InvalidArgumentError(
+							"Expected a positive number of decimal MB.",
 						);
 					return bytes;
 				},
