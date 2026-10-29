@@ -22,6 +22,7 @@ FROM oven/bun:1.4.4-debian
 USER root
 RUN apt-get update && apt-get install -y \
     iputils-ping \
+    libcap2-bin \
     ncurses-bin \
     && rm -rf /var/lib/apt/lists/* \
     && setcap cap_net_raw+ep /bin/ping

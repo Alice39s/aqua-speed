@@ -20,3 +20,8 @@ jobs:
       - run: bun test
       - run: bun run build
       - run: bun run src/cli.ts --help
+      - name: Build and verify container
+        if: runner.os == 'Linux'
+        run: |
+          docker build . --tag aqua-speed:ci
+          docker run --rm --entrypoint /bin/sh aqua-speed:ci -c 'getcap /bin/ping | grep -F cap_net_raw=ep'
