@@ -1,6 +1,6 @@
 {
 	"name": "aqua-speed",
-	"version": "1.0.4",
+	"version": "1.1.0",
 	"description": "A modern network speed test CLI built with Bun and TypeScript.",
 	"keywords": [
 		"bun",

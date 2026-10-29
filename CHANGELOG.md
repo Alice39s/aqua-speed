@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 # Changelog
 
+## [1.1.0] - 2026-10-30
+
+### 💫 Added
+
+- `--type Apple` runs download, upload and latency tests against Apple's CDN (`mensura.cdn-apple.com`).
+- Download and upload phases stop early once aggregate throughput is stable. Results report why a phase ended: `stable`, `budget` or `timeout`.
+- Each direction has an adaptive traffic budget of 250 MB to 2.5 GB, set from about ten seconds at the measured rate. `--max-data <MB>` sets a fixed limit.
+- GeoIP lookups fall back across GeoJS, IPInfo.es, FreeIPAPI, WP Statistics (MaxMind/DB-IP) and IPInfo. `--ipinfo-token`, `IPINFO_TOKEN` or `IPINFO_API_KEY` enables authenticated IPInfo, and `--no-geoip` skips location lookups.
+- `--doh-server <url>` (repeatable) or `AQUA_SPEED_DOH_SERVERS` sets the DoH services for metadata lookups. `--no-doh` uses system DNS only.
+
+### 🔧 Changed
+
+- Aqua Speed requires Bun 1.4.4 or newer. Dependencies are pinned in the text lockfile `bun.lock`.
+- Runtime dependencies are updated, including commander 15, chalk 6, ora 9 and undici 8.
+- `--timeout` sets the maximum duration of each download and upload phase (default 30 seconds).
+- Server labels show the full hostname.
+- Invalid `--server` URLs are rejected before any network activity. LibreSpeed and SingleFile tests require `--server`.
+- `minSamples` is deprecated and has no effect.
+- Type checking uses TypeScript 7 through Oxlint's type-aware mode, and Oxlint and Oxfmt replace Biome.
+- GitHub Actions are pinned to commit SHAs, and CI runs on Linux, macOS and Windows.
+
+### 🐞 Fixed
+
+- A transfer still running at the deadline returns the bytes it counted instead of failing the phase.
+- Endpoint pre-checks reject HTTP error responses.
+- SingleFile URLs keep their path and query string.
+- The Docker image installs `libcap2-bin`, so `setcap` is available for `ping`.
+- GeoIP rate limits and outages no longer stop a test before transfers start.
+
 ## [1.0.4] - 2025-01-16
 
 ### 💫 Added
