@@ -89,6 +89,7 @@ export async function downloadTestWorker(
 						...(testType === "Apple"
 							? APPLE_FETCH_HEADERS
 							: DEFAULT_FETCH_HEADERS),
+						...(testType === "Apple" ? { Range: "bytes=0-24999999" } : {}),
 						Referer: referer,
 						Origin: referer,
 						Path: url.pathname,
