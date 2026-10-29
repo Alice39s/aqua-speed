@@ -12,7 +12,7 @@ A modern network speed test CLI built with Bun and TypeScript.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-%23007ACC.svg?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Bun](https://img.shields.io/badge/Bun-%2314151a.svg?style=flat&logo=bun&logoColor=#fbf0df)](https://bun.sh)
-[![Biome](https://img.shields.io/badge/Biome-%23171c2b.svg?style=flat&logo=biome&logoColor=#60a5fa)](https://biomejs.dev/)
+[![Oxc](https://img.shields.io/badge/Oxc-lint%20%26%20format-yellow)](https://oxc.rs)
 [![License](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](LICENSE)
 
 </div>
@@ -37,7 +37,7 @@ A modern network speed test CLI built with Bun and TypeScript.
   - Download/Upload speeds
   - Jitter analysis
 - 🎨 Beautiful CLI interface with real-time progress
-- 🛡️ Full TypeScript type support, Biome constrained code style.
+- 🛡️ Full TypeScript type support, Oxc constrained code style.
 
 ## :star: Supported Servers
 
@@ -206,14 +206,17 @@ bun run build:binary
 
 ### :scroll: Code Style
 
-This project uses Biome for code formatting and linting (using `biome format` and `biome check`):
+Oxfmt formats the code. Oxlint and its `tsgolint` engine run lint rules and TypeScript 7 diagnostics in one pass:
 
 ```bash
 # Format code
 bun run format
 
-# Lint code
+# Lint and type-check code
 bun run lint
+
+# Run all checks
+bun run check
 ```
 
 ## :book: Changelog
@@ -235,7 +238,7 @@ See [Roadmap.md](Roadmap.md) for more details.
 Please ensure:
 
 - Tests pass
-- Code follows Biome standards
+- Code follows Oxc standards
 - Commit messages are clear
 - Documentation is updated
 

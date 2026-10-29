@@ -215,6 +215,9 @@ bun run format
 
 # 代码检查
 bun run lint
+
+# 运行全部检查
+bun run check
 ```
 
 ## :fork_and_knife: 贡献
@@ -251,5 +254,3 @@ bun run lint
 - 所有贡献者
 
 [^1]: 自定义文件 URL 暂不支持测试上传，仅支持下载、推荐指定 10MB 以上的文件。
-
-开发检查：`bun run lint` 使用 Oxlint 与 `tsgolint` 检查类型和代码，`bun run format` 使用 Oxfmt 格式化，`bun run check` 执行全部本地检查。
