@@ -68,7 +68,7 @@ describe("aggregate throughput convergence", () => {
 		).toBe(6600);
 	});
 	test("cannot infer stability from a few widely spaced observations", () => {
-		const tracker = createConvergenceTracker({ ...config, minSamples: 1 });
+		const tracker = createConvergenceTracker(config);
 		for (let time = 1000; time <= 30000; time += 1000) {
 			expect(tracker.sample(time, time * 100, true)).toBe(false);
 		}
@@ -127,5 +127,20 @@ test("one-second upload fitting rejects sustained oscillation, ramps, and repeat
 			bytes += (rate(time) * 200) / 8000;
 			expect(tracker.sample(time, bytes, true)).toBe(false);
 		}
+	}
+});
+
+test("legacy minSamples above the window capacity does not disable convergence", () => {
+	for (const minSamples of [1, 8, 11, 20]) {
+		const legacyConfig = { ...config, minSamples };
+		const tracker = createConvergenceTracker(legacyConfig);
+		let stoppedAt = 0;
+		for (let time = 200; time <= 6000; time += 200) {
+			if (tracker.sample(time, time * 12500, true)) {
+				stoppedAt = time;
+				break;
+			}
+		}
+		expect(stoppedAt).toBe(5600);
 	}
 });

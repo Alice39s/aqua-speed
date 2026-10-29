@@ -265,7 +265,7 @@ Apple 测速：`aqua-speed --type Apple`。支持下载、上传和空闲延迟�
 
 上传每向传输层交付 64 KiB 数据就报告进度。上传收敛每 200 毫秒检查最近一秒的重叠字节增长窗口，避免有限 POST 边界造成采样混叠，默认 5% 阈值不变。下载仍使用 200 毫秒观测，结果统计保留未经平滑的间隔。
 
-稳定后结束时，CLI 显示 `stable, stopped early`。程序取消剩余请求，等待连接收尾后进入下一阶段，并保留传输字节统计。测量期间按 `--thread` 保持固定连接数。库调用可通过 `minTestTime`、`minSamples` 和 `targetError` 调整判断条件；`SpeedStats.stopReason` 返回 `stable`、`budget` 或 `timeout`。
+稳定后结束时，CLI 显示 `stable, stopped early`。程序取消剩余请求，等待连接收尾后进入下一阶段，并保留传输字节统计。测量期间按 `--thread` 保持固定连接数。库调用可通过 `minTestTime` 和 `targetError` 调整判断条件；`SpeedStats.stopReason` 返回 `stable`、`budget` 或 `timeout`。
 
 ### 默认流量预算
 

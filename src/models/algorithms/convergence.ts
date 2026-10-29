@@ -14,9 +14,7 @@ const MIN_WINDOW_SAMPLES = 8;
 
 /** Fit recent aggregate throughput; elapsed time alone is never evidence of stability. */
 export function createConvergenceTracker(
-	config: Required<
-		Pick<TestConfigBase, "minTestTime" | "minSamples" | "targetError">
-	>,
+	config: Required<Pick<TestConfigBase, "minTestTime" | "targetError">>,
 	measurementWindow = 200,
 ) {
 	let previousTime = 0;
@@ -75,7 +73,7 @@ export function createConvergenceTracker(
 		if (
 			!allWorkersStarted ||
 			timestamp - startedAt < config.minTestTime ||
-			recent.length < Math.max(MIN_WINDOW_SAMPLES, config.minSamples) ||
+			recent.length < MIN_WINDOW_SAMPLES ||
 			coveredTime < WINDOW_TIME ||
 			stats.min <= 0 ||
 			stats.avg <= 0

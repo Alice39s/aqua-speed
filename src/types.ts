@@ -149,7 +149,7 @@ export interface TestConfigBase {
 	maxTestTime?: number;
 	/** Target relative error rate (0-1) */
 	targetError?: number;
-	/** Minimum samples required */
+	/** @deprecated Retained for source compatibility; convergence uses a fixed observation window. */
 	minSamples?: number;
 	/** Progress callback interval in milliseconds */
 	progressInterval?: number;

@@ -268,7 +268,7 @@ Apple tests use the CDN capacity endpoints for download, upload, and idle latenc
 
 Uploads report payload as 64 KiB pieces are handed to the transport. Upload convergence fits overlapping one-second byte-growth windows every 200 ms, avoiding finite-POST boundary aliasing without changing the default 5% tolerance. Downloads retain 200 ms observations. Result statistics retain the unsmoothed intervals.
 
-The CLI marks a stable result as `stable, stopped early`. Active requests are cancelled and settled before the next phase starts; byte totals retain completed transfer progress. Connection count stays fixed at `--thread` during the measurement. Library callers can tune `minTestTime`, `minSamples`, and `targetError`; `SpeedStats.stopReason` is `stable`, `budget`, or `timeout`.
+The CLI marks a stable result as `stable, stopped early`. Active requests are cancelled and settled before the next phase starts; byte totals retain completed transfer progress. Connection count stays fixed at `--thread` during the measurement. Library callers can tune `minTestTime` and `targetError`; `SpeedStats.stopReason` is `stable`, `budget`, or `timeout`.
 
 ### Traffic budget
 
