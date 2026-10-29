@@ -1,3 +1,4 @@
+import { getAppleEndpoint } from "@/models/providers/apple";
 import type {
 	TestConfigBase,
 	DownloadTestConfig,
@@ -25,6 +26,14 @@ interface TestEndpoints {
 }
 
 const TEST_ENDPOINTS: TestEndpoints = {
+	Apple: (baseUrl, testType) => ({
+		url: getAppleEndpoint(
+			baseUrl,
+			testType === "download" ? "download" : "upload",
+		),
+		referrer: new URL(baseUrl).origin,
+		fallbackUrls: [],
+	}),
 	LibreSpeed: (baseUrl: string, testType: string) => {
 		// Define all possible path patterns for LibreSpeed
 		const paths = [
@@ -168,7 +177,14 @@ async function measureSpeed(
 	}
 
 	// Pre-check URL availability
-	while (!(await checkUrlAvailability(currentUrl, referrer, testType))) {
+	while (
+		!(await checkUrlAvailability(
+			currentUrl,
+			referrer,
+			testType,
+			mergedConfig.type,
+		))
+	) {
 		if (urlIndex >= fallbackUrls.length) {
 			throw new SpeedTestError("All URLs are unavailable");
 		}
@@ -191,7 +207,7 @@ async function measureSpeed(
 	const spinner = logger.create(testType, `Testing ${testType} speed...`);
 	const updateInterval = setInterval(() => {
 		const realSpeed = currentSpeed * activeThreads;
-		const speedFormat = formatSpeed(realSpeed / 1000000);
+		const speedFormat = formatSpeed(realSpeed);
 		spinner.text = `Testing ${testType} speed... ${speedFormat} (${activeThreads} threads)`;
 	}, progressInterval);
 
@@ -265,7 +281,14 @@ async function measureSpeed(
 					// Pre-check the next URL before switching
 					while (urlIndex < fallbackUrls.length) {
 						const nextUrl = fallbackUrls[urlIndex];
-						if (await checkUrlAvailability(nextUrl, referrer, testType)) {
+						if (
+							await checkUrlAvailability(
+								nextUrl,
+								referrer,
+								testType,
+								mergedConfig.type,
+							)
+						) {
 							currentUrl = nextUrl;
 							urlIndex++;
 							continue;
@@ -283,8 +306,11 @@ async function measureSpeed(
 			if (!signal.aborted) await sleep(500);
 		}
 
+		const stats = calculateStats(samples);
+		if (stats.avg === 0)
+			throw new Error(`No ${testType} data transferred before the deadline`);
 		return {
-			...calculateStats(samples),
+			...stats,
 			totalBytes,
 			duration: performance.now() - startTime,
 		};

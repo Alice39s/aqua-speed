@@ -1,3 +1,4 @@
+import { getAppleEndpoint, APPLE_FETCH_HEADERS } from "./providers/apple";
 import type { LatencyStats, TestType } from "../types";
 import { msToMicros, calculateStats, sleep, usToMs } from "../utils/common";
 import Logger from "../utils/logger";
@@ -92,13 +93,17 @@ async function measureTCPLatency(host: string, samples = 3): Promise<number> {
 				resolve(-1);
 			}, 2000); // 2 seconds timeout
 
-			socket.connect(Number(url.port || 80), url.hostname, () => {
-				clearTimeout(timeout);
-				const end = process.hrtime.bigint();
-				const latency = Number(end - start) / 1000; // Convert nanoseconds to microseconds
-				socket.end();
-				resolve(latency);
-			});
+			socket.connect(
+				Number(url.port || (url.protocol === "https:" ? 443 : 80)),
+				url.hostname,
+				() => {
+					clearTimeout(timeout);
+					const end = process.hrtime.bigint();
+					const latency = Number(end - start) / 1000; // Convert nanoseconds to microseconds
+					socket.destroy();
+					resolve(latency);
+				},
+			);
 
 			socket.on("error", (err) => {
 				clearTimeout(timeout);
@@ -179,6 +184,10 @@ async function measureHTTPLatency(url: URL, type: TestType): Promise<number> {
 	let options: RequestInit;
 
 	switch (type) {
+		case "Apple":
+			testUrl = getAppleEndpoint(url.href, "latency");
+			options = { ...commonOptions, headers: APPLE_FETCH_HEADERS };
+			break;
 		case "Cloudflare":
 			testUrl = `${url.origin}/cdn-cgi/trace`;
 			options = {
@@ -207,7 +216,7 @@ async function measureHTTPLatency(url: URL, type: TestType): Promise<number> {
 	try {
 		const response = await fetch(testUrl, {
 			...options,
-			signal: controller.signal,
+			signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]),
 		});
 
 		controller.abort();

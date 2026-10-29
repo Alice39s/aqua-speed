@@ -13,7 +13,12 @@ export interface ColoResult {
 	region?: string;
 }
 
-export type TestType = "LibreSpeed" | "Cloudflare" | "SingleFile" | "Ookla";
+export type TestType =
+	| "LibreSpeed"
+	| "Cloudflare"
+	| "SingleFile"
+	| "Ookla"
+	| "Apple";
 
 /**
  * Test Configuration

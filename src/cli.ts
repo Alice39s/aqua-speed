@@ -192,7 +192,7 @@ async function main() {
 			)
 			.option(
 				"--type <type>",
-				"Default: SingleFile, options: LibreSpeed, Ookla, Cloudflare",
+				"Default: Cloudflare, options: SingleFile, LibreSpeed, Apple, Cloudflare (Ookla is not supported yet)",
 				"Cloudflare",
 			) // TODO: Ookla is not supported yet
 			// .option('--ns, --no-speedtest', 'Disable speed test')
@@ -204,7 +204,7 @@ async function main() {
 			.parse(process.argv)
 			.opts();
 
-		const config = await mergeTestConfig(options as TestConfig);
+		const config = await mergeTestConfig(options as Partial<TestConfig>);
 		const display = await prepareDisplayInfo(config);
 
 		manageDebugMode(config.debug ?? false);
