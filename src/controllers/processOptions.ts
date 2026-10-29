@@ -31,43 +31,60 @@ export const DEFAULT_CONFIG: TestConfig = {
 async function mergeTestConfig(
 	options: Partial<TestConfig>,
 ): Promise<TestConfig> {
-	try {
-		const defaults =
-			options.type === "Apple"
-				? {
-						...DEFAULT_CONFIG,
-						server: APPLE_SERVER,
-						sn: "Apple",
-						type: "Apple" as const,
-					}
-				: DEFAULT_CONFIG;
-		// Use default config and merge options
-		const config = {
-			...defaults,
-			...options,
-			// Limit thread number to 1-32
-			thread: Math.max(
-				1,
-				Math.min(32, options.thread || DEFAULT_CONFIG.thread),
-			),
-			// Limit timeout to 5-300 seconds
-			timeout: Math.max(
-				5,
-				Math.min(300, options.timeout || DEFAULT_CONFIG.timeout),
-			),
-			// If server type is specified, use user-set type
-			type: options.type || DEFAULT_CONFIG.type,
-		};
-
-		if (!isValidUrl(config.server)) {
-			throw new Error(`Invalid server URL: ${config.server}`);
-		}
-
-		return config;
-	} catch (error) {
-		console.error("Failed to prepare test config:", error);
-		return DEFAULT_CONFIG;
+	const type = options.type ?? DEFAULT_CONFIG.type;
+	if (
+		!["Apple", "Cloudflare", "LibreSpeed", "SingleFile", "Ookla"].includes(
+			type!,
+		)
+	)
+		throw new Error("Unsupported test type");
+	if (type !== "Apple" && type !== "Cloudflare" && !options.server)
+		throw new Error(`--server is required for ${type}`);
+	const config: TestConfig = {
+		...DEFAULT_CONFIG,
+		...options,
+		type,
+		server:
+			options.server ??
+			(type === "Apple" ? APPLE_SERVER : DEFAULT_CONFIG.server),
+		sn: options.sn ?? (options.server ? getDomainName(options.server) : type!),
+		thread: Math.max(1, Math.min(32, options.thread || DEFAULT_CONFIG.thread)),
+		timeout: Math.max(
+			5,
+			Math.min(300, options.timeout || DEFAULT_CONFIG.timeout),
+		),
+	};
+	if (
+		!isValidUrl(config.server) ||
+		!["http:", "https:"].includes(new URL(config.server).protocol)
+	)
+		throw new Error("--server must be a valid HTTP or HTTPS URL");
+	const envServers = process.env.AQUA_SPEED_DOH_SERVERS;
+	config.dohServers =
+		config.doh === false
+			? []
+			: (options.dohServers ??
+				(envServers === undefined
+					? undefined
+					: envServers
+							.split(",")
+							.map((url) => url.trim())
+							.filter(Boolean)));
+	for (const endpoint of config.dohServers ?? []) {
+		if (!isValidUrl(endpoint)) throw new Error("Invalid DoH endpoint URL");
+		const url = new URL(endpoint);
+		const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+		if (
+			(url.protocol !== "https:" && !(local && url.protocol === "http:")) ||
+			url.username ||
+			url.password ||
+			url.hash
+		)
+			throw new Error(
+				"DoH endpoints require HTTPS (HTTP is allowed on loopback)",
+			);
 	}
+	return config;
 }
 
 /**

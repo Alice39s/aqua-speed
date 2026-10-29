@@ -10,6 +10,7 @@ import {
 import { getIpGeolocation, getIpGeoOnly } from "@/models/tools/getGeoIp";
 import { resolveDns } from "@/models/tools/dnsResolver";
 import chalk from "chalk";
+import bogon from "bogon";
 import {
 	manageDebugMode,
 	isDebugMode,
@@ -72,8 +73,10 @@ async function displayServerInfo(config: TestConfig): Promise<void> {
 	if (config.geoip === false) return;
 
 	try {
-		const resResult = await resolveDns(config.server);
-		if (resResult.ip) {
+		const resResult = await resolveDns(config.server, null, {
+			dohServers: config.dohServers,
+		});
+		if (resResult.ip && !bogon(resResult.ip)) {
 			console.log(chalk.gray("    Server IP: ") + chalk.white(resResult.ip));
 			const ipInfo = await getIpGeoOnly(resResult.ip, {
 				ipinfoToken: config.ipinfoToken,
@@ -231,6 +234,15 @@ async function main() {
 			)
 			.option("--debug", "Debug mode", false)
 			.option(
+				"--doh-server <url>",
+				"JSON DoH endpoint; repeat to set fallback order (env: AQUA_SPEED_DOH_SERVERS)",
+				(value: string, previous: string[] | undefined) => [
+					...(previous ?? []),
+					value,
+				],
+			)
+			.option("--no-doh", "Use system DNS only for metadata lookups")
+			.option(
 				"--privacy",
 				"Privacy mode (Display the local address instead of real IP)",
 				false,
@@ -254,6 +266,7 @@ async function main() {
 			ipinfoToken:
 				options.ipinfoToken ??
 				(process.env.IPINFO_TOKEN || process.env.IPINFO_API_KEY),
+			dohServers: options.dohServer,
 			maxTransferBytes: options.maxData,
 		} as Partial<TestConfig>);
 		const display = await prepareDisplayInfo(config);

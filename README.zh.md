@@ -130,10 +130,21 @@ bun run start
 aqua-speed
 
 # 测试 LibreSpeed 服务器
-aqua-speed --type LibreSpeed
+aqua-speed --type LibreSpeed --server https://speed.example.com
 
 # 使用自定义文件 URL 测试
-aqua-speed -s https://example.com/testfile.dat
+aqua-speed --type SingleFile -s https://example.com/testfile.dat
+```
+
+### 自定义服务器与 DNS
+
+Cloudflare 和 Apple 提供默认服务器；LibreSpeed、SingleFile 和 Ookla 必须指定 `--server`。自定义 URL 仅支持 HTTP 和 HTTPS，配置无效时会在联网前报错。未提供 `--sn` 时，显示名称采用自定义服务器的主机名。
+
+查询服务器 IP 信息时先使用系统 DNS，再尝试 Cloudflare 和阿里云的 JSON DoH 服务。重复传入 `--doh-server`，或用逗号分隔的 `AQUA_SPEED_DOH_SERVERS` 环境变量，可以替换回退服务列表，命令行参数优先。`--no-doh` 或空的环境变量值表示仅使用系统 DNS。每次 DNS 请求及 DoH 响应体读取最多等待两秒。DoH URL 必须使用 HTTPS，本机回环地址允许 HTTP。IP 地址直接跳过 DNS 查询。这些选项只影响服务器信息查询，实际测速连接使用运行时的 DNS 解析。
+
+```bash
+aqua-speed --type LibreSpeed --server https://speed.example.com --no-doh
+aqua-speed --doh-server https://dns.example.com/resolve --doh-server https://backup.example.com/resolve
 ```
 
 ### :hammer_and_wrench: 高级选项
@@ -150,6 +161,8 @@ Options:
   --ipinfo-token <token> IPInfo Token（环境变量：IPINFO_TOKEN 或 IPINFO_API_KEY）
   --no-geoip            跳过 IP 发现与归属地查询
   --debug               调试模式
+  --doh-server <url>     JSON DoH 地址，可重复设置回退顺序
+  --no-doh              服务器信息查询仅使用系统 DNS
   --type <type>         测试类型 (SingleFile|LibreSpeed|Cloudflare|Apple)
 ```
 
