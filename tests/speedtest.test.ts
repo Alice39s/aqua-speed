@@ -8,7 +8,11 @@ import {
 	maskIpAddress,
 	getDomainName,
 } from "../src/utils/common";
-import { formatSpeed, formatLatency, formatSpeedResult } from "../src/utils/format";
+import {
+	formatSpeed,
+	formatLatency,
+	formatSpeedResult,
+} from "../src/utils/format";
 
 const requests: { path: string; method: string; size: number }[] = [];
 const server = Bun.serve({
