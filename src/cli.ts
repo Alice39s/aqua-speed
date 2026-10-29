@@ -52,10 +52,14 @@ function displayVersion(): void {
  */
 function formatLocationInfo(ipInfo: IpGeoResponse): string[] {
 	const { ip, region, country, org, anycast } = ipInfo;
-	const location = anycast ? "Anycast IP" : `${region}, ${country}`;
+	const location = anycast
+		? "Anycast IP"
+		: [region, country].filter(Boolean).join(", ") || "Unavailable";
 
 	return [
-		chalk.gray("    IP: ") + chalk.white(`${ip}`) + chalk.gray(` (${org})`),
+		chalk.gray("    IP: ") +
+			chalk.white(ip) +
+			(org ? chalk.gray(` (${org})`) : ""),
 		chalk.gray("    Location: ") + chalk.white(location),
 	];
 }
@@ -65,17 +69,26 @@ function formatLocationInfo(ipInfo: IpGeoResponse): string[] {
  */
 async function displayServerInfo(config: TestConfig): Promise<void> {
 	console.log(chalk.yellow("Test Configuration:"));
+	if (config.geoip === false) return;
 
 	try {
 		const resResult = await resolveDns(config.server);
 		if (resResult.ip) {
-			const ipInfo = await getIpGeoOnly(resResult.ip);
+			console.log(chalk.gray("    Server IP: ") + chalk.white(resResult.ip));
+			const ipInfo = await getIpGeoOnly(resResult.ip, {
+				ipinfoToken: config.ipinfoToken,
+			});
 			const locationInfo = formatLocationInfo(ipInfo);
 			for (const line of locationInfo) console.log(line);
 		}
 	} catch (error) {
-		console.error(chalk.red("Error details:"), error);
-		process.exit(1);
+		console.warn(
+			chalk.yellow("    Server location unavailable; continuing speed test."),
+		);
+		if (isDebugMode())
+			console.warn(
+				error instanceof Error ? error.message : "Server lookup failed",
+			);
 	}
 }
 
@@ -97,24 +110,34 @@ function displayTestConfig(display: TestDisplay): void {
  * Display client information
  */
 async function displayClientInfo(config: TestConfig): Promise<void> {
+	if (config.geoip === false) return;
 	console.log(chalk.yellow("\nClient Information:"));
 
 	try {
 		const ipInfo = await getIpGeolocation(config);
 		const { ip, region, country, org } = ipInfo;
-		const countryEmoji = countryCodeToFlagEmoji(country);
-		const location = `${countryEmoji}  ${region}`;
+		const countryEmoji = country ? countryCodeToFlagEmoji(country) : "";
+		const location =
+			[countryEmoji, region || country].filter(Boolean).join("  ") ||
+			"Unavailable";
 		const maskedIp = maskIpAddress(ip, config.privacy);
 
 		console.log(
 			chalk.gray("    IP: ") +
 				chalk.white(`${maskedIp}`) +
-				chalk.gray(` (${org})`),
+				(org ? chalk.gray(` (${org})`) : ""),
 		);
 		console.log(chalk.gray("    Location: ") + chalk.white(location));
 	} catch (error) {
-		console.error(chalk.red("Error details:"), error);
-		process.exit(1);
+		console.warn(
+			chalk.yellow(
+				"    Client information unavailable; continuing speed test.",
+			),
+		);
+		if (isDebugMode())
+			console.warn(
+				error instanceof Error ? error.message : "Client lookup failed",
+			);
 	}
 }
 
@@ -179,6 +202,11 @@ async function main() {
 			.option("-s, --server <url>", "Speed test server URL")
 			.option("--sn <name>", "Speed test server name")
 			.option(
+				"--ipinfo-token <token>",
+				"IPInfo API token (env: IPINFO_TOKEN or IPINFO_API_KEY)",
+			)
+			.option("--no-geoip", "Skip IP discovery and location lookups")
+			.option(
 				"-t, --thread <number>",
 				"Number of concurrent connections",
 				Number.parseInt,
@@ -223,6 +251,9 @@ async function main() {
 
 		const config = await mergeTestConfig({
 			...options,
+			ipinfoToken:
+				options.ipinfoToken ??
+				(process.env.IPINFO_TOKEN || process.env.IPINFO_API_KEY),
 			maxTransferBytes: options.maxData,
 		} as Partial<TestConfig>);
 		const display = await prepareDisplayInfo(config);

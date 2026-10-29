@@ -147,9 +147,17 @@ Options:
   -t, --thread <number>  并发连接数
   --timeout <seconds>    每个下载／上传阶段的最长秒数（默认 30）
   --max-data <MB>        每个方向的十进制 MB 上限（默认自动估算）
+  --ipinfo-token <token> IPInfo Token（环境变量：IPINFO_TOKEN 或 IPINFO_API_KEY）
+  --no-geoip            跳过 IP 发现与归属地查询
   --debug               调试模式
   --type <type>         测试类型 (SingleFile|LibreSpeed|Cloudflare|Apple)
 ```
+
+### GeoIP 服务
+
+归属地查询依次尝试 GeoJS、IPInfo.es、FreeIPAPI、WP Statistics MaxMind、WP Statistics DB-IP，最后尝试 IPInfo。配置 `--ipinfo-token` 后优先使用带认证的 IPInfo；也可使用 `IPINFO_TOKEN` 或 `IPINFO_API_KEY` 环境变量，按此顺序取值，命令行参数优先。Token 仅通过 Authorization 请求头发送给 IPInfo。
+
+每个服务的请求及响应体读取最多等待三秒，整次查询最多等待十秒。限流、无效 JSON、空数据和 IP 不匹配都会尝试下一个服务。查询本机出口 IP 时使用支持自动识别地址的 GeoJS、FreeIPAPI 和 IPInfo。归属地服务不可用时，测速继续运行，并显示信息不可用。`--no-geoip` 会跳过 IP 发现、归属地查询及 Cloudflare 机房信息查询。缺失字段显示为不可用；FreeIPAPI 返回的国家时区列表不会作为该 IP 的时区。
 
 ## :mag: 示例输出
 
