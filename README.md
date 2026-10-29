@@ -28,7 +28,7 @@ A modern network speed test CLI built with Bun and TypeScript.
 - 🚀 High-performance speed testing powered by Bun runtime
 - ✨ Multiple test servers support:
   - Cloudflare (download & upload)
-  - LibreSpeed (download & upload) 
+  - LibreSpeed (download & upload)
   - Ookla (TODO)
   - Custom file URL (download only) [^1]
 - 🧵 Concurrent testing with configurable threads
@@ -62,14 +62,16 @@ A modern network speed test CLI built with Bun and TypeScript.
 Download the latest binary compressed package from [Releases](https://github.com/Alice39s/aqua-speed/releases)
 
 #### Linux & macOS
+
 ```bash
 chmod +x aqua-speed
 ./aqua-speed
 ```
 
 #### Windows
+
 ```bash
-./aqua-speed.exe 
+./aqua-speed.exe
 ```
 
 ### :whale: Run from Docker
@@ -118,6 +120,7 @@ bun run start
 ## Basic Usage
 
 ### Quick Start
+
 ```bash
 # Run with defaults (Cloudflare server, 4 threads)
 aqua-speed
@@ -136,8 +139,8 @@ aqua-speed [options]
 
 Options:
   -s, --server <url>     Speed test server URL
-  --sn <name>            Speed test server name 
-  -t, --thread <number>  Number of concurrent connections  
+  --sn <name>            Speed test server name
+  -t, --thread <number>  Number of concurrent connections
   --timeout <seconds>    Maximum seconds per download/upload phase (default: 30)
   --debug               Debug mode
   --type <type>         Test type (SingleFile|LibreSpeed|Cloudflare)
@@ -173,12 +176,14 @@ chmod +x aqua-speed
 ```
 
 2. Low speeds
+
 - Reduce threads: `-t 2`
 - Test with different servers
 
 ### Debug Mode
 
 Enable debug logging for detailed information:
+
 ```bash
 ./aqua-speed --debug
 ```
@@ -228,6 +233,7 @@ See [Roadmap.md](Roadmap.md) for more details.
 5. Submit pull request
 
 Please ensure:
+
 - Tests pass
 - Code follows Biome standards
 - Commit messages are clear
