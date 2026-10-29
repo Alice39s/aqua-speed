@@ -122,49 +122,6 @@ async function measureTCPLatency(host: string, samples = 3): Promise<number> {
 }
 
 /**
- * Measures HTTP/2 latency for a given URL.
- * @param {string} url - The target URL.
- * @param {RequestInit} options - Fetch request options.
- * @returns {Promise<number>} Latency in microseconds, or special error codes.
- * - Returns -1 for general errors.
- * - Returns -2 to signal HTTP/1.1 fallback.
- */
-async function measureHTTPLatencyH2(
-	url: string,
-	options: RequestInit,
-): Promise<number> {
-	const controller = new AbortController();
-	const start = process.hrtime.bigint();
-
-	try {
-		const response = await fetch(url, {
-			...options,
-			signal: controller.signal,
-		});
-
-		controller.abort();
-		const end = process.hrtime.bigint();
-		const latency = Number(end - start) / 1000; // Convert to ms
-		return response.ok ? Math.round(latency) : -1;
-	} catch (error: unknown) {
-		if (error instanceof Error && error.name === "UnsupportedProtocolError") {
-			return -2; // Try fallback to HTTP/1.1
-		}
-		if (error instanceof Error && error.name === "AbortError") {
-			const end = process.hrtime.bigint();
-			const latency = Number(end - start) / 1000;
-			return Math.round(latency);
-		}
-		if (isDebugMode()) {
-			logger.error(
-				`[measureHTTPLatencyH2] Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-			);
-		}
-		return -1;
-	}
-}
-
-/**
  * Measures WebSocket latency for a given URL
  * @param {URL} url - The target URL
  * @returns {Promise<number>} Latency in microseconds, or -1 if connection fails
@@ -243,17 +200,7 @@ async function measureHTTPLatency(url: URL, type: TestType): Promise<number> {
 			};
 	}
 
-	// Try HTTP/2 latency measurement
-	const h2Result = await measureHTTPLatencyH2(testUrl, options);
-	if (h2Result !== -2) {
-		logger.debug(`[measureHTTPLatency] HTTP/2 latency: ${h2Result / 1000} ms`);
-		return h2Result;
-	}
-
-	// If HTTP/2 is not supported, fallback to HTTP/1.1
-	logger.debug(
-		"[measureHTTPLatency] HTTP/2 is not supported, falling back to HTTP/1.1",
-	);
+	// Use the fetch transport without claiming a negotiated HTTP version.
 	const controller = new AbortController();
 	const start = process.hrtime.bigint();
 
