@@ -263,7 +263,8 @@ async function measureSpeed(
 				try {
 					while (!batchSignal.aborted && !trafficBudget.exhausted) {
 						let workerBytes = 0;
-						startedWorkers.delete(worker);
+						// Repeated finite requests remain part of the same active worker.
+						// Reset readiness only when the whole endpoint/cohort changes.
 						await attemptSpeedTest(
 							currentUrl,
 							referrer,

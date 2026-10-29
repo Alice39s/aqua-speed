@@ -10,6 +10,7 @@ import { measureDownload, measureUpload } from "@/models";
 import Logger from "@/utils/logger";
 import { getDomainName } from "@/utils/common";
 import { createTrafficBudget } from "@/models/algorithms/trafficBudget";
+import { formatSpeedResult } from "@/utils/format";
 
 const logger = new Logger();
 
@@ -100,16 +101,6 @@ async function executeTestPhase<T>(
 function formatLatencyResult(result: LatencyResult): string {
 	const formatMs = (us: number) => usToMs(us).toFixed(2);
 	return `Latency test completed - Avg, ICMP: ${formatMs(result.icmp.avg)}ms, TCP: ${formatMs(result.tcp.avg)}ms, HTTP: ${formatMs(result.http.avg)}ms`;
-}
-
-function formatSpeedResult(result: SpeedStats): string {
-	const reason =
-		result.stopReason === "budget"
-			? " (traffic budget reached)"
-			: result.stopReason === "stable"
-				? " (stable, stopped early)"
-				: "";
-	return `${(result.avg / 1000000).toFixed(2)} Mbps${reason}`;
 }
 
 export async function runSpeedTest(

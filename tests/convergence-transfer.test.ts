@@ -96,13 +96,17 @@ test("a fluctuating download continues until its hard deadline", async () => {
 test("upload convergence stops scheduling POSTs and retains confirmed payload bytes", async () => {
 	let confirmed = 0;
 	let posts = 0;
+	let firstPostAt = 0;
 	const server = Bun.serve({
 		port: 0,
 		async fetch(request) {
 			const bytes = (await request.arrayBuffer()).byteLength;
 			if (bytes <= 100) return new Response(null, { status: 200 });
+			firstPostAt ||= performance.now();
 			posts++;
-			await delay(20);
+			// Pace the aggregate acknowledgements, compensating for timer granularity
+			// and per-request work instead of accumulating drift on Windows runners.
+			await delay(Math.max(0, firstPostAt + posts * 40 - performance.now()));
 			confirmed += bytes;
 			return new Response(null, { status: 200 });
 		},
@@ -116,7 +120,7 @@ test("upload convergence stops scheduling POSTs and retains confirmed payload by
 			targetError: 0.15,
 		});
 		expect(result.stopReason).toBe("stable");
-		expect(result.duration).toBeLessThan(8000);
+		expect(result.duration).toBeLessThan(10000);
 		expect(result.totalBytes).toBeGreaterThan(0);
 		expect(result.totalBytes).toBeLessThanOrEqual(confirmed);
 		const finishedPosts = posts;
