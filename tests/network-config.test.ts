@@ -1,4 +1,4 @@
-import { afterAll, expect, test } from "bun:test";
+import { afterAll, expect, mock, spyOn, test } from "bun:test";
 import { fileURLToPath } from "node:url";
 import {
 	mergeTestConfig,
@@ -63,6 +63,18 @@ const server = Bun.serve({
 });
 afterAll(() => server.stop(true));
 const endpoint = (path: string) => `${server.url.origin}/${path}`;
+
+function stubSystemDns(ipv4?: string[], ipv6?: string[]) {
+	const lookup = (addresses?: string[]) =>
+		mock(async (hostname: string) => {
+			if (addresses) return addresses;
+			throw Object.assign(new Error(`query ENOTFOUND ${hostname}`), {
+				code: "ENOTFOUND",
+			});
+		});
+	const resolver = { resolve4: lookup(ipv4), resolve6: lookup(ipv6) };
+	return { resolver, createResolver: mock(() => resolver) };
+}
 
 test("keeps Cloudflare and Apple defaults and honors custom servers", async () => {
 	expect((await mergeTestConfig({})).server).toBe(DEFAULT_CONFIG.server);
@@ -132,24 +144,92 @@ test("configures DoH order through args or env and supports system DNS only", as
 
 test("IP literals bypass external resolvers and preserve family preference", async () => {
 	requests.length = 0;
-	expect(
-		await resolveDns("http://127.0.0.1/file", null, {
-			dohServers: [endpoint("valid")],
-		}),
-	).toEqual({ ip: "127.0.0.1" });
-	expect(await resolveDns("http://[::1]/file", 6)).toEqual({ ip: "::1" });
-	expect(await resolveDns("http://[::1]/file", 4)).toEqual({});
-	expect(await resolveDns("http://localhost/file", 4)).toEqual({
+	const { createResolver } = stubSystemDns();
+	const options = { dohServers: [endpoint("valid")], createResolver };
+	expect(await resolveDns("http://127.0.0.1/file", null, options)).toEqual({
 		ip: "127.0.0.1",
 	});
-	expect(await resolveDns("http://test.localhost/file", 6)).toEqual({
+	expect(await resolveDns("http://[::1]/file", 6, options)).toEqual({
 		ip: "::1",
 	});
+	expect(await resolveDns("http://[::1]/file", 4, options)).toEqual({});
+	expect(await resolveDns("http://localhost/file", 4, options)).toEqual({
+		ip: "127.0.0.1",
+	});
+	expect(await resolveDns("http://test.localhost/file", 6, options)).toEqual({
+		ip: "::1",
+	});
+	expect(createResolver).not.toHaveBeenCalled();
 	expect(requests).toHaveLength(0);
+});
+
+for (const pref of [null, 4, 6] as const) {
+	test(`system DNS success skips DoH with preference ${pref}`, async () => {
+		requests.length = 0;
+		const { resolver, createResolver } = stubSystemDns(
+			["9.9.9.9"],
+			["2606:4700:4700::1111"],
+		);
+		expect(
+			await resolveDns("https://aqua-speed.invalid", pref, {
+				dohServers: [endpoint("valid")],
+				createResolver,
+			}),
+		).toEqual({ ip: pref === 6 ? "2606:4700:4700::1111" : "9.9.9.9" });
+		expect(createResolver).toHaveBeenCalledWith({ timeout: 2000, tries: 1 });
+		expect(resolver.resolve4).toHaveBeenCalledTimes(pref === 6 ? 0 : 1);
+		expect(resolver.resolve6).toHaveBeenCalledTimes(pref === 6 ? 1 : 0);
+		expect(requests).toHaveLength(0);
+	});
+}
+
+test("system IPv6 success takes priority over DoH after IPv4 NXDOMAIN", async () => {
+	requests.length = 0;
+	const { resolver, createResolver } = stubSystemDns(undefined, [
+		"2606:4700:4700::1111",
+	]);
+	expect(
+		await resolveDns("https://aqua-speed.invalid", null, {
+			dohServers: [endpoint("valid")],
+			createResolver,
+		}),
+	).toEqual({ ip: "2606:4700:4700::1111" });
+	expect(resolver.resolve4).toHaveBeenCalledWith("aqua-speed.invalid");
+	expect(resolver.resolve6).toHaveBeenCalledWith("aqua-speed.invalid");
+	expect(requests).toHaveLength(0);
+});
+
+test("system fake-IP answers keep priority over DoH", async () => {
+	requests.length = 0;
+	const { resolver, createResolver } = stubSystemDns(["198.18.0.1"]);
+	expect(
+		await resolveDns("https://aqua-speed.invalid", null, {
+			dohServers: [endpoint("valid")],
+			createResolver,
+		}),
+	).toEqual({ ip: "198.18.0.1" });
+	expect(resolver.resolve4).toHaveBeenCalledWith("aqua-speed.invalid");
+	expect(resolver.resolve6).not.toHaveBeenCalled();
+	expect(requests).toHaveLength(0);
+});
+
+test("falls back to DoH only after both system families fail", async () => {
+	requests.length = 0;
+	const { resolver, createResolver } = stubSystemDns();
+	expect(
+		await resolveDns("https://aqua-speed.invalid", null, {
+			dohServers: [endpoint("valid")],
+			createResolver,
+		}),
+	).toEqual({ ip: "9.9.9.9" });
+	expect(resolver.resolve4).toHaveBeenCalledWith("aqua-speed.invalid");
+	expect(resolver.resolve6).toHaveBeenCalledWith("aqua-speed.invalid");
+	expect(requests.map((r) => r.type)).toEqual(["A"]);
 });
 
 test("tries the next configured DoH service after errors and unusable answers", async () => {
 	requests.length = 0;
+	const { resolver, createResolver } = stubSystemDns();
 	const paths = [
 		"status",
 		"invalid",
@@ -160,8 +240,11 @@ test("tries the next configured DoH service after errors and unusable answers", 
 	const result = await resolveDns("https://aqua-speed.invalid/file", 4, {
 		dohServers: paths.map(endpoint),
 		timeoutMs: 100,
+		createResolver,
 	});
 	expect(result.ip).toBe("9.9.9.9");
+	expect(resolver.resolve4).toHaveBeenCalledWith("aqua-speed.invalid");
+	expect(resolver.resolve6).not.toHaveBeenCalled();
 	expect(requests.map((r) => r.path)).toEqual([
 		"/status",
 		"/invalid",
@@ -177,26 +260,41 @@ test("tries the next configured DoH service after errors and unusable answers", 
 
 test("bounds DoH body reads and supports Alibaba-style IPv6 records", async () => {
 	requests.length = 0;
+	const { resolver, createResolver } = stubSystemDns();
 	const start = performance.now();
 	const result = await resolveDns("https://aqua-speed.invalid", 6, {
 		dohServers: [endpoint("stall"), endpoint("ali")],
 		timeoutMs: 50,
+		createResolver,
 	});
 	expect(result.ip).toBe("2606:4700:4700::1111");
+	expect(resolver.resolve6).toHaveBeenCalledWith("aqua-speed.invalid");
+	expect(resolver.resolve4).not.toHaveBeenCalled();
 	expect(performance.now() - start).toBeLessThan(1000);
 	expect(requests.map((r) => r.path)).toEqual(["/stall", "/ali"]);
 	expect(requests.every((r) => r.type === "AAAA")).toBe(true);
 });
 
 test("an empty DoH list never contacts an external HTTP resolver", async () => {
-	requests.length = 0;
-	expect(
-		await resolveDns("https://aqua-speed.invalid", null, {
-			dohServers: [],
-			timeoutMs: 50,
-		}),
-	).toEqual({});
-	expect(requests).toHaveLength(0);
+	const { resolver, createResolver } = stubSystemDns();
+	const fetchSpy = spyOn(globalThis, "fetch").mockRejectedValue(
+		new Error("Unexpected HTTP request"),
+	);
+	try {
+		expect(
+			await resolveDns("https://aqua-speed.invalid", null, {
+				dohServers: [],
+				timeoutMs: 50,
+				createResolver,
+			}),
+		).toEqual({});
+		expect(resolver.resolve4).toHaveBeenCalledWith("aqua-speed.invalid");
+		expect(resolver.resolve6).toHaveBeenCalledWith("aqua-speed.invalid");
+		expect(createResolver).toHaveBeenCalledWith({ timeout: 50, tries: 1 });
+		expect(fetchSpy).not.toHaveBeenCalled();
+	} finally {
+		fetchSpy.mockRestore();
+	}
 });
 
 test("CLI rejects invalid server configuration before starting a test", async () => {
