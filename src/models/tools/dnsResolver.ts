@@ -1,4 +1,5 @@
 import { Resolver } from "node:dns/promises";
+import type { ResolverOptions } from "node:dns";
 import { isIP } from "node:net";
 import Logger from "@/utils/logger";
 
@@ -8,10 +9,17 @@ export const DEFAULT_DOH_SERVERS = [
 	"https://dns.alidns.com/resolve",
 ];
 
+interface SystemDnsResolver {
+	resolve4(hostname: string): Promise<string[]>;
+	resolve6(hostname: string): Promise<string[]>;
+}
+
 export interface DnsOptions {
 	/** Empty list uses system DNS only. */
 	dohServers?: readonly string[];
 	timeoutMs?: number;
+	/** Override system DNS for callers that need a controlled resolver. */
+	createResolver?: (options: ResolverOptions) => SystemDnsResolver;
 }
 
 /** System DNS first; configured JSON DoH services only enrich display metadata. */
@@ -26,7 +34,9 @@ export async function resolveDns(
 		return { ip: pref === 6 ? "::1" : "127.0.0.1" };
 	if (isIP(hostname))
 		return versions.includes(isIP(hostname) as 4 | 6) ? { ip: hostname } : {};
-	const resolver = new Resolver({
+	const createResolver =
+		options.createResolver ?? ((config) => new Resolver(config));
+	const resolver = createResolver({
 		timeout: options.timeoutMs ?? 2000,
 		tries: 1,
 	});
